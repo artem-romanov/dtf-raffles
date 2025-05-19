@@ -23,11 +23,6 @@ func (t Tokens) IsAccessValid() bool {
 	return true
 }
 
-type UserSession struct {
-	Email      string
-	UserTokens Tokens
-}
-
 type BlogPost struct {
 	Id    int
 	Title string

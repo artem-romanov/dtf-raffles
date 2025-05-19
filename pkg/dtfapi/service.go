@@ -1,63 +1,28 @@
 package dtfapi
 
 import (
-	"errors"
 	"fmt"
 	"strconv"
-	"sync"
 	"time"
 
-	"golang.org/x/sync/singleflight"
 	"resty.dev/v3"
 )
 
 const DtfApi string = "https://api.dtf.ru/"
 
 type DtfService struct {
-	// private fields
-	client        *resty.Client
-	userSession   UserSession
-	userSessionMu sync.RWMutex
-
-	// utilities
-	refreshTokenGroup singleflight.Group
-
-	// callbacks
-	onTokenRefresh func(email string, tokens Tokens)
+	client *resty.Client
 }
 
 func NewService(client *resty.Client) *DtfService {
 	client.SetBaseURL(DtfApi)
 
+	// TODO: Introduce 10 different user agents and pick randomly
 	chromeUserAgent := "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36"
 	client.SetHeader("User-agent", chromeUserAgent)
 
 	return &DtfService{
 		client: client,
-		userSession: UserSession{
-			Email:      "",
-			UserTokens: Tokens{},
-		},
-	}
-}
-
-func (c *DtfService) SetSession(email string, tokens Tokens) {
-	c.userSessionMu.Lock()
-	defer c.userSessionMu.Unlock()
-
-	c.userSession = UserSession{
-		Email:         email,
-		UserTokens:    tokens,
-		Authenticated: true,
-	}
-}
-
-func (c *DtfService) DisposeSession() {
-	c.userSessionMu.Lock()
-	defer c.userSessionMu.Unlock()
-
-	c.userSession = UserSession{
-		Authenticated: false,
 	}
 }
 
@@ -90,6 +55,10 @@ func (c *DtfService) EmailLogin(email, password string) (Tokens, error) {
 	}
 
 	if resp.IsError() {
+		if apiError.Code == 104 && apiError.Message == "Invalid login or password" {
+			return Tokens{}, ErrInvalidCredentials
+		}
+
 		return Tokens{}, apiError
 	}
 
@@ -214,10 +183,10 @@ type ReactToPostRequest struct {
 }
 
 // Reacts to post with <Heart> reaction
-func (c *DtfService) ReactToPost(postId int) error {
+func (c *DtfService) ReactToPost(accessToken string, postId int) error {
 	var apiError DtfErrorV2
 
-	req, err := c.withAuth()
+	req, err := c.withAuth(accessToken)
 
 	if err != nil {
 		return err
@@ -255,9 +224,9 @@ type PostCommentRequest struct {
 	Attachments []string `json:"attachments"`
 }
 
-func (c *DtfService) PostComment(postId int, text string) error {
+func (c *DtfService) PostComment(accessToken string, postId int, text string) error {
 	var apiError DtfErrorV2
-	req, err := c.withAuth()
+	req, err := c.withAuth(accessToken)
 	if err != nil {
 		return err
 	}
@@ -283,62 +252,7 @@ func (c *DtfService) PostComment(postId int, text string) error {
 	return nil
 }
 
-func (c *DtfService) GetTokens() Tokens {
-	return c.userSession.UserTokens
-}
-
-func (c *DtfService) SetOnRefreshCallback(cb func(email string, tokens Tokens)) {
-	c.onTokenRefresh = cb
-}
-
-func (c *DtfService) withAuth() (*resty.Request, error) {
-	c.userSessionMu.RLock()
-	authenticated := c.userSession.Authenticated
-	tokens := c.userSession.UserTokens
-	c.userSessionMu.RUnlock()
-
-	if !authenticated {
-		return nil, errors.New("User is not authenticated")
-	}
-
-	if tokens.AccessToken == "" {
-		return nil, ErrMissingToken
-	}
-
-	if !tokens.IsAccessValid() {
-		// fuck, looks like we need to update tokens
-		// singleflight helps for concurrency
-		// 	and avoids race conditions (N requests for refresh = only 1 correct refresh for all)
-		tokensAny, err, _ := c.refreshTokenGroup.Do("refresh", func() (interface{}, error) {
-			return c.RefreshToken(tokens.RefreshToken)
-		})
-		if err != nil {
-			fmt.Println(err)
-			return nil, fmt.Errorf("Couldn't refresh tokens: %s", err)
-		}
-		if newTokens, ok := tokensAny.(Tokens); ok {
-			c.setTokens(newTokens)
-		} else {
-			return nil, fmt.Errorf("Can't cast Tokens from refresh token [withAuth]")
-		}
-	}
-
-	// finally, taking all tokens again
-	// in case if they were updated
-	c.userSessionMu.RLock()
-	tokens = c.userSession.UserTokens
-	c.userSessionMu.RUnlock()
-
-	headerValue := fmt.Sprintf("Bearer %s", tokens.AccessToken)
+func (c *DtfService) withAuth(accessToken string) (*resty.Request, error) {
+	headerValue := fmt.Sprintf("Bearer %s", accessToken)
 	return c.client.R().SetHeader("Jwtauthorization", headerValue), nil
-}
-
-func (c *DtfService) setTokens(tokens Tokens) {
-	c.userSessionMu.Lock()
-	c.userSession.UserTokens = tokens
-	c.userSessionMu.Unlock()
-
-	if c.onTokenRefresh != nil {
-		c.onTokenRefresh(c.userSession.Email, tokens)
-	}
 }

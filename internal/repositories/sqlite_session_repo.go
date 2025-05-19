@@ -3,16 +3,14 @@ package repositories
 import (
 	"context"
 	"database/sql"
+	"dtf/game_draw/internal/domain"
 	"dtf/game_draw/internal/domain/models"
 	"dtf/game_draw/internal/storage/sqlite"
-	"errors"
 	"fmt"
 	"time"
 )
 
 const sqliteTableName = "user_sessions"
-
-var ErrUserSessionNotFound = errors.New("UserSession not found")
 
 type SqliteUserSessionRepository struct {
 	db *sql.DB
@@ -79,7 +77,7 @@ func (repo *SqliteUserSessionRepository) GetByEmail(
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return session, ErrUserSessionNotFound
+			return session, domain.ErrUserSessionNotFound
 		}
 		return session, err
 	}
@@ -91,4 +89,18 @@ func (repo *SqliteUserSessionRepository) GetByEmail(
 	}
 
 	return session, nil
+}
+
+func (repo *SqliteUserSessionRepository) DeleteByEmail(ctx context.Context, email string) error {
+	query := fmt.Sprintf(
+		`DELETE FROM %s WHERE email = ?`,
+		sqliteTableName,
+	)
+
+	_, err := repo.db.ExecContext(ctx, query, email)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

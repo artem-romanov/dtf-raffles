@@ -22,6 +22,7 @@ type DtfErrorV3 struct {
 }
 
 var ErrMissingToken = errors.New("Access token is not provided")
+var ErrInvalidCredentials = errors.New("Invalid email & password")
 
 func (err DtfErrorV3) Error() string {
 	return fmt.Sprintf(`api error: %s (code: %d)`, err.Message, err.Code)

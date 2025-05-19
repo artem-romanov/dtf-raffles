@@ -7,6 +7,6 @@ import (
 
 type PostRepository interface {
 	SearchPosts(query string, dateFrom time.Time) ([]models.Post, error)
-	ReactToPost(post models.Post, user models.UserSession) (models.UserSession, error)
-	PostComment(post models.Post, text string, user models.UserSession) (models.UserSession, error)
+	ReactToPost(user models.UserSession, post models.Post) error
+	PostComment(user models.UserSession, post models.Post, text string) error
 }
