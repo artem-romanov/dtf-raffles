@@ -123,6 +123,44 @@ func (c *DtfService) RefreshToken(refreshToken string) (Tokens, error) {
 	return tokens, nil
 }
 
+// endpoint: /me
+type SelfUserResponse struct {
+	Message string `json:"message"`
+	Result  struct {
+		Id   int    `json:"id"`
+		Url  string `json:"url"`
+		Name string `json:"name"`
+	}
+}
+
+func (c *DtfService) SelfUserInfo(accessToken string) (UserInfo, error) {
+	var apiResponse SelfUserResponse
+	var apiError DtfErrorV2
+
+	req, err := c.withAuth(accessToken)
+	if err != nil {
+		return UserInfo{}, err
+	}
+
+	resp, err := req.
+		SetResult(&apiResponse).
+		SetError(&apiError).
+		Get("/v2.1/subsite/me")
+	if err != nil {
+		return UserInfo{}, err
+	}
+
+	if resp.IsError() {
+		return UserInfo{}, err
+	}
+
+	return UserInfo{
+		Id:   apiResponse.Result.Id,
+		Url:  apiResponse.Result.Url,
+		Name: apiResponse.Result.Name,
+	}, nil
+}
+
 type PostResponse struct {
 	Data struct {
 		Id    int    `json:"id"`
@@ -187,7 +225,6 @@ func (c *DtfService) ReactToPost(accessToken string, postId int) error {
 	var apiError DtfErrorV2
 
 	req, err := c.withAuth(accessToken)
-
 	if err != nil {
 		return err
 	}

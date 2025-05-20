@@ -6,6 +6,6 @@ import (
 )
 
 type UserManager interface {
-	BuildSession(ctx context.Context, email string) (models.UserSession, error)
-	EmailLogin(ctx context.Context, email, password string) (models.UserSession, error)
+	BuildSession(ctx context.Context, email string) (models.DtfUserSession, error)
+	EmailLogin(ctx context.Context, email, password string) (models.DtfUserSession, error)
 }

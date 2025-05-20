@@ -36,7 +36,7 @@ func (r dtfPostRepository) SearchPosts(query string, dateFrom time.Time) ([]mode
 	return posts, nil
 }
 
-func (r dtfPostRepository) ReactToPost(user models.UserSession, post models.Post) error {
+func (r dtfPostRepository) ReactToPost(user models.DtfUserSession, post models.Post) error {
 	err := r.dtfService.ReactToPost(user.AccessToken, int(post.Id))
 	if err != nil {
 		return err
@@ -45,7 +45,7 @@ func (r dtfPostRepository) ReactToPost(user models.UserSession, post models.Post
 	return nil
 }
 
-func (r dtfPostRepository) PostComment(user models.UserSession, post models.Post, text string) error {
+func (r dtfPostRepository) PostComment(user models.DtfUserSession, post models.Post, text string) error {
 	err := r.dtfService.PostComment(user.AccessToken, int(post.Id), text)
 	if err != nil {
 		return err

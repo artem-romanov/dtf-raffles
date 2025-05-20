@@ -5,8 +5,9 @@ import (
 	"time"
 )
 
+// TODO: add context to all methods
 type PostRepository interface {
 	SearchPosts(query string, dateFrom time.Time) ([]models.Post, error)
-	ReactToPost(user models.UserSession, post models.Post) error
-	PostComment(user models.UserSession, post models.Post, text string) error
+	ReactToPost(user models.DtfUserSession, post models.Post) error
+	PostComment(user models.DtfUserSession, post models.Post, text string) error
 }

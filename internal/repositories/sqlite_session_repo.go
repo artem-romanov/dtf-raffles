@@ -22,43 +22,11 @@ func NewSqliteUserSessionRepository(db *sql.DB) *SqliteUserSessionRepository {
 	}
 }
 
-func (repo *SqliteUserSessionRepository) Save(
-	ctx context.Context,
-	us models.UserSession,
-) error {
-	queryStr := fmt.Sprintf(`
-	INSERT INTO %s (email, access, refresh, access_expiration, created_at, updated_at) 
-		VALUES(?, ?, ?, ?, ?, ?)
-		ON CONFLICT(email) DO UPDATE SET
-			access = excluded.access,
-			refresh = excluded.refresh,
-			access_expiration = excluded.access_expiration,
-			updated_at = excluded.updated_at;
-	`, sqliteTableName)
-
-	_, err := repo.db.ExecContext(
-		ctx,
-		queryStr,
-		us.Email,
-		us.AccessToken,
-		us.RefreshToken,
-		sqlite.ToDbTime(us.AccessExpiration),
-		sqlite.ToDbTime(time.Now()),
-		sqlite.ToDbTime(time.Now()),
-	)
-
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func (repo *SqliteUserSessionRepository) GetByEmail(
 	ctx context.Context,
 	email string,
-) (models.UserSession, error) {
-	var session models.UserSession
+) (models.DtfUserSession, error) {
+	var session models.DtfUserSession
 	var accessExpirationString string
 	queryStr := fmt.Sprintf(`
 		SELECT email, access, refresh, access_expiration 
@@ -91,16 +59,64 @@ func (repo *SqliteUserSessionRepository) GetByEmail(
 	return session, nil
 }
 
-func (repo *SqliteUserSessionRepository) DeleteByEmail(ctx context.Context, email string) error {
-	query := fmt.Sprintf(
-		`DELETE FROM %s WHERE email = ?`,
-		sqliteTableName,
+func (repo *SqliteUserSessionRepository) Save(
+	ctx context.Context,
+	tx domain.DBTX,
+	us models.DtfUserSession,
+) error {
+	queryStr := fmt.Sprintf(`
+	INSERT INTO %s (email, access, refresh, access_expiration, created_at, updated_at) 
+		VALUES(?, ?, ?, ?, ?, ?)
+		ON CONFLICT(email) DO UPDATE SET
+			access = excluded.access,
+			refresh = excluded.refresh,
+			access_expiration = excluded.access_expiration,
+			updated_at = excluded.updated_at;
+	`, sqliteTableName)
+
+	db := repo.getExecutor(tx)
+	_, err := db.ExecContext(
+		ctx,
+		queryStr,
+		us.Email,
+		us.AccessToken,
+		us.RefreshToken,
+		sqlite.ToDbTime(us.AccessExpiration),
+		sqlite.ToDbTime(time.Now()),
+		sqlite.ToDbTime(time.Now()),
 	)
 
-	_, err := repo.db.ExecContext(ctx, query, email)
 	if err != nil {
 		return err
 	}
 
 	return nil
+}
+
+func (repo *SqliteUserSessionRepository) DeleteByEmail(
+	ctx context.Context,
+	tx domain.DBTX,
+	email string,
+) error {
+	db := repo.getExecutor(tx)
+
+	query := fmt.Sprintf(
+		`DELETE FROM %s WHERE email = ?`,
+		sqliteTableName,
+	)
+
+	_, err := db.ExecContext(ctx, query, email)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (repo *SqliteUserSessionRepository) getExecutor(tx domain.DBTX) domain.DBTX {
+	if tx == nil {
+		return repo.db
+	}
+
+	return tx
 }

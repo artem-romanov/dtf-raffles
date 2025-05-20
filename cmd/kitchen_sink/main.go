@@ -2,115 +2,99 @@ package main
 
 import (
 	"context"
+	"dtf/game_draw/internal/domain/managers"
 	"dtf/game_draw/internal/domain/models"
-	repo "dtf/game_draw/internal/domain/repositories"
-	"dtf/game_draw/internal/repositories"
+	"dtf/game_draw/internal/domain/repositories"
+	implManagers "dtf/game_draw/internal/managers"
+	implRepo "dtf/game_draw/internal/repositories"
 	"dtf/game_draw/internal/storage/sqlite"
+	"dtf/game_draw/internal/usecases"
 	"dtf/game_draw/pkg/dtfapi"
-	"errors"
 	"fmt"
+	"log"
+	"log/slog"
+	"sync"
+	"time"
 )
 
 const (
-	email      string = "xenox2048@gmail.com"
-	pass       string = "Azxsdcvf12"
-	sqlitePath string = "./dtf_db.sqlite"
+	email    string = "xenox2048@gmail.com"
+	password string = "Azxsdcvf12"
 )
 
 func main() {
 	ctx := context.Background()
 
-	db, err := sqlite.InitDB(sqlitePath)
+	dtfClient := dtfapi.NewClient(ctx)
+	dtfService := dtfapi.NewService(dtfClient.Client())
+
+	db, err := sqlite.InitDB("./dtf_db.sqlite")
 	if err != nil {
 		panic(err)
 	}
-	defer db.Close()
 
-	client := dtfapi.NewClient(context.TODO())
-	defer client.Close()
+	var sessionRepo repositories.DtfSessionRepository = implRepo.NewSqliteUserSessionRepository(db)
+	var authRepo repositories.AuthRepository = implRepo.NewDtfAuthRepository(dtfService)
+	var postRepo repositories.PostRepository = implRepo.NewDtfPostRepository(dtfService)
 
-	dtfService := dtfapi.NewService(client.Client())
+	var userManager managers.UserManager = implManagers.NewUserSessionManager(sessionRepo, authRepo)
 
-	var userSessionRepo repo.SessionRepository = repositories.NewSqliteUserSessionRepository(db)
-	var postRepository repo.PostRepository = repositories.NewDtfPostRepository(dtfService)
-
-	dtfService.SetOnRefreshCallback(func(email string, tokens dtfapi.Tokens) {
-		// TODO: check sqlite and think about mutex
-		session := models.UserSession{
-			Email:            email,
-			AccessToken:      tokens.AccessToken,
-			RefreshToken:     tokens.RefreshToken,
-			AccessExpiration: tokens.AccessExpiration,
-		}
-		err := userSessionRepo.Save(ctx, session)
-
-		if err != nil {
-			fmt.Println("COULDNT SAVE SESSION: ", session.Email)
-		}
-	})
-	session, err := findExistingSession(ctx, userSessionRepo, email)
-	if err == nil {
-		fmt.Println("USER HAS BEEN FOUND!")
-	}
-
-	if err != nil && !errors.Is(err, repositories.ErrUserSessionNotFound) {
-		panic(err)
-	}
-
-	if err != nil && errors.Is(err, repositories.ErrUserSessionNotFound) {
-		session, err = authenticateUser(dtfService, email, pass)
-		if err != nil {
-			panic(err)
-		}
-		err = userSessionRepo.Save(ctx, session)
-		if err != nil {
-			panic(err)
-		}
-	}
-
-	dtfService.SetSession(email, dtfapi.Tokens{
-		AccessToken:      session.AccessToken,
-		RefreshToken:     session.RefreshToken,
-		AccessExpiration: session.AccessExpiration,
-	})
-
-	err = postRepository.ReactToPost(models.Post{
-		Id: 3772402,
-	})
+	posts, err := FindRaffleNews(postRepo)
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
+	fmt.Println("Список Розыгрышей на сегодня:")
+	for _, post := range posts {
+		fmt.Printf("<%d>: %s\n (%s)\n", post.Id, post.Title, post.Uri)
+	}
+	fmt.Println("________")
+
+	slog.Info("Starting concurrent requests...")
+	var wg sync.WaitGroup
+	for i := range 10 {
+		wg.Add(1)
+		go func(number int) {
+			defer wg.Done()
+
+			session, err := userManager.BuildSession(ctx, email)
+			if err != nil {
+				fmt.Println("Error is: ", err)
+				return
+			}
+
+			userInfo, err := authRepo.SelfInfo(session)
+			if err != nil {
+				fmt.Println("Error userInfo: ", err)
+				return
+			}
+
+			fmt.Println(userInfo)
+		}(i + 1)
+	}
+
+	wg.Wait()
+	slog.Info("Exiting programm...")
 }
 
-func findExistingSession(
+func FindRaffleNews(repo repositories.PostRepository) ([]models.Post, error) {
+	uc := usecases.NewGetActiveRafflePostsUseCase(repo)
+	posts, err := uc.Execute(time.Now().AddDate(0, 0, -1))
+	if err != nil {
+		return nil, err
+	}
+	return posts, nil
+}
+
+func LoginUser(
 	ctx context.Context,
-	sessionRepo repo.SessionRepository,
-	email string,
-) (models.UserSession, error) {
-	// check if session exists in DB
-	session, err := sessionRepo.GetByEmail(ctx, email)
-	if err != nil {
-		return models.UserSession{}, err
-	}
-
-	return session, nil
-}
-
-func authenticateUser(
-	dtfService *dtfapi.DtfService,
-	email string,
+	userManager managers.UserManager,
+	email,
 	password string,
-) (models.UserSession, error) {
-	fmt.Println("TRYING TO LOGIN USER")
-	tokens, err := dtfService.EmailLogin(email, password)
+) (models.DtfUserSession, error) {
+	user, err := userManager.EmailLogin(ctx, email, password)
 	if err != nil {
-		return models.UserSession{}, err
+		return models.DtfUserSession{}, err
 	}
 
-	return models.UserSession{
-		Email:            email,
-		AccessToken:      tokens.AccessToken,
-		RefreshToken:     tokens.RefreshToken,
-		AccessExpiration: tokens.AccessExpiration,
-	}, nil
+	return user, nil
 }

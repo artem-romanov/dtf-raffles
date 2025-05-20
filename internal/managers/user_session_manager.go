@@ -5,18 +5,21 @@ import (
 	"dtf/game_draw/internal/domain"
 	"dtf/game_draw/internal/domain/models"
 	"dtf/game_draw/internal/domain/repositories"
+	"dtf/game_draw/internal/utils"
 	"errors"
 	"log/slog"
-	"time"
+
+	"golang.org/x/sync/singleflight"
 )
 
 type userSessionManager struct {
-	sessionRepo repositories.SessionRepository
-	authRepo    repositories.AuthRepository
+	sessionRepo  repositories.DtfSessionRepository
+	authRepo     repositories.AuthRepository
+	refreshGroup singleflight.Group
 }
 
 func NewUserSessionManager(
-	sessionRepo repositories.SessionRepository,
+	sessionRepo repositories.DtfSessionRepository,
 	authRepo repositories.AuthRepository,
 ) *userSessionManager {
 	return &userSessionManager{
@@ -25,28 +28,40 @@ func NewUserSessionManager(
 	}
 }
 
-func (usm *userSessionManager) BuildSession(ctx context.Context, email string) (models.UserSession, error) {
+func (usm *userSessionManager) BuildSession(ctx context.Context, email string) (models.DtfUserSession, error) {
 	user, err := usm.sessionRepo.GetByEmail(ctx, email)
 	if err != nil {
-		return models.UserSession{}, err
+		return models.DtfUserSession{}, err
 	}
 
-	if !UserExpired(user) {
+	if !utils.UserExpired(user) {
 		return user, nil
 	}
 
-	newUser, err := usm.authRepo.RefreshToken(user)
+	// Avoid refresh token race conditions
+	// WARNING side effect: 1st executor will also place data in session repo
+	// other gorutines will only receive results
+	newUserAny, err, _ := usm.refreshGroup.Do(email, func() (interface{}, error) {
+		slog.Info("Running singleflight", "user", user.Email)
+		newUser, err := usm.authRepo.RefreshToken(user)
+		if err != nil {
+			return models.DtfUserSession{}, err
+		}
+
+		// Right now it's ok to skip if error
+		// TODO: test and think about it later
+		usm.persistUser(ctx, newUser)
+		return newUser, nil
+	})
 	if err != nil {
-		return models.UserSession{}, err
+		return models.DtfUserSession{}, err
 	}
 
-	// Right now it's ok to skip if error
-	// TODO: test and think about it later
-	usm.persistUser(ctx, newUser)
-	return newUser, nil
+	// mmm, not sure its safe
+	return newUserAny.(models.DtfUserSession), nil
 }
 
-func (usm *userSessionManager) EmailLogin(ctx context.Context, email, password string) (models.UserSession, error) {
+func (usm *userSessionManager) EmailLogin(ctx context.Context, email, password string) (models.DtfUserSession, error) {
 	user, err := usm.authRepo.Login(email, password)
 	if err == nil {
 		// Right now it's ok to skip if error
@@ -56,36 +71,23 @@ func (usm *userSessionManager) EmailLogin(ctx context.Context, email, password s
 
 	if err != nil {
 		if errors.Is(err, domain.ErrInvalidCredentials) {
-			deleteErr := usm.sessionRepo.DeleteByEmail(ctx, email)
+			deleteErr := usm.sessionRepo.DeleteByEmail(ctx, nil, email)
 			if deleteErr != nil {
-				return models.UserSession{}, deleteErr
+				return models.DtfUserSession{}, deleteErr
 			}
 		}
-		return models.UserSession{}, err
+		return models.DtfUserSession{}, err
 	}
 
 	return user, nil
 }
 
-func (usm *userSessionManager) persistUser(ctx context.Context, user models.UserSession) error {
-	err := usm.sessionRepo.Save(ctx, user)
+func (usm *userSessionManager) persistUser(ctx context.Context, user models.DtfUserSession) error {
+	slog.Info("Running persist", "user", user.Email)
+	err := usm.sessionRepo.Save(ctx, nil, user)
 	if err != nil {
 		slog.Error("Couldnt save updated user", "email", user.Email)
 		return err
 	}
 	return nil
-}
-
-// TODO: Move to utils or domain model support functions
-func UserExpired(session models.UserSession) bool {
-	if session.AccessToken == "" {
-		return true
-	}
-
-	diff := time.Until(session.AccessExpiration)
-	if diff.Microseconds() <= 0 {
-		return true
-	}
-
-	return false
 }

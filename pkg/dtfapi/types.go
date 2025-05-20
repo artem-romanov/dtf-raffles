@@ -28,3 +28,9 @@ type BlogPost struct {
 	Title string
 	Uri   string
 }
+
+type UserInfo struct {
+	Id   int
+	Url  string
+	Name string
+}

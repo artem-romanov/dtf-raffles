@@ -17,17 +17,17 @@ func NewDtfAuthRepository(dtfService *dtfapi.DtfService) *dtfAuthRepository {
 	}
 }
 
-func (r *dtfAuthRepository) Login(email, password string) (models.UserSession, error) {
+func (r *dtfAuthRepository) Login(email, password string) (models.DtfUserSession, error) {
 	tokens, err := r.dtfService.EmailLogin(email, password)
 
 	if err != nil {
 		if errors.Is(err, dtfapi.ErrInvalidCredentials) {
-			return models.UserSession{}, domain.ErrInvalidCredentials
+			return models.DtfUserSession{}, domain.ErrInvalidCredentials
 		}
-		return models.UserSession{}, err
+		return models.DtfUserSession{}, err
 	}
 
-	return models.UserSession{
+	return models.DtfUserSession{
 		Email:            email,
 		AccessToken:      tokens.AccessToken,
 		RefreshToken:     tokens.RefreshToken,
@@ -36,16 +36,29 @@ func (r *dtfAuthRepository) Login(email, password string) (models.UserSession, e
 
 }
 
-func (r *dtfAuthRepository) RefreshToken(user models.UserSession) (models.UserSession, error) {
+func (r *dtfAuthRepository) RefreshToken(user models.DtfUserSession) (models.DtfUserSession, error) {
 	tokens, err := r.dtfService.RefreshToken(user.RefreshToken)
 	if err != nil {
-		return models.UserSession{}, err
+		return models.DtfUserSession{}, err
 	}
 
-	return models.UserSession{
+	return models.DtfUserSession{
 		Email:            user.Email,
 		AccessToken:      tokens.AccessToken,
 		RefreshToken:     tokens.RefreshToken,
 		AccessExpiration: tokens.AccessExpiration,
+	}, nil
+}
+
+func (r *dtfAuthRepository) SelfInfo(user models.DtfUserSession) (models.DtfUserInfo, error) {
+	response, err := r.dtfService.SelfUserInfo(user.AccessToken)
+	if err != nil {
+		return models.DtfUserInfo{}, err
+	}
+
+	return models.DtfUserInfo{
+		Id:   response.Id,
+		Name: response.Name,
+		Url:  response.Url,
 	}, nil
 }
