@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"dtf/game_draw/internal"
 	"dtf/game_draw/internal/domain/models"
 	iRepo "dtf/game_draw/internal/domain/repositories"
 	"dtf/game_draw/internal/repositories"
@@ -21,15 +22,17 @@ import (
 	"gopkg.in/telebot.v4"
 )
 
-const (
-	sqlitePath = "./dtf_db.sqlite"
-)
-
 func main() {
 	ctx := context.Background()
-	deps := initDependencies(ctx, sqlitePath)
+	config, err := internal.NewConfig()
+	if err != nil {
+		log.Fatalf("Config error: %s", err)
+	}
+	fmt.Println(config)
 
-	bot, err := telegram.NewBot(deps.telegramSubsRepo)
+	deps := initDependencies(ctx, config.DbPath)
+
+	bot, err := telegram.NewBot(config.TelegramToken, deps.telegramSubsRepo)
 	if err != nil {
 		log.Fatalf("Fuck! Reason: %s", err)
 	}

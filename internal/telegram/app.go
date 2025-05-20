@@ -10,14 +10,12 @@ import (
 	tele "gopkg.in/telebot.v4"
 )
 
-// TODO: remove hardcoded token
-const token string = "7994165004:AAFG89Gi31WvJRLfH5CmgkyYI-K_cW1FE8o"
-
 func NewBot(
+	botToken string,
 	telegramSessionRepo repositories.TelegramSubscribersRepository,
 ) (*tele.Bot, error) {
 	botSettings := tele.Settings{
-		Token: token,
+		Token: botToken,
 		Poller: &tele.LongPoller{
 			Timeout: 10 * time.Second,
 		},
