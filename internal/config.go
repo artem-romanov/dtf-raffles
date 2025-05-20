@@ -17,6 +17,7 @@ func NewConfig() (*Config, error) {
 		return nil, err
 	}
 
+	// TODO: add validation checks for each required field
 	return &Config{
 		DbPath:        os.Getenv("GOOSE_DBSTRING"),
 		TelegramToken: os.Getenv("TELEGRAM_TOKEN"),
