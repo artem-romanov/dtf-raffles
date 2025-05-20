@@ -11,8 +11,8 @@ type GetActiveRafflePostsUseCase struct {
 	postRepo repositories.PostRepository
 }
 
-func NewGetActiveRafflePostsUseCase(repo repositories.PostRepository) GetActiveRafflePostsUseCase {
-	return GetActiveRafflePostsUseCase{
+func NewGetActiveRafflePostsUseCase(repo repositories.PostRepository) *GetActiveRafflePostsUseCase {
+	return &GetActiveRafflePostsUseCase{
 		postRepo: repo,
 	}
 }

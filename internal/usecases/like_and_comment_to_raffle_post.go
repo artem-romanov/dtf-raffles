@@ -12,8 +12,8 @@ type LikeAndPostToRafflePostUseCase struct {
 	userManager managers.UserManager
 }
 
-func NewLikeAndPostToRafflePostUseCase() LikeAndPostToRafflePostUseCase {
-	return LikeAndPostToRafflePostUseCase{}
+func NewLikeAndPostToRafflePostUseCase() *LikeAndPostToRafflePostUseCase {
+	return &LikeAndPostToRafflePostUseCase{}
 }
 
 func (uc *LikeAndPostToRafflePostUseCase) Execute(ctx context.Context, userEmail string, post models.Post) error {

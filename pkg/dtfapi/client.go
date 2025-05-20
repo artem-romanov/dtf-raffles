@@ -3,8 +3,6 @@ package dtfapi
 import (
 	"context"
 	"errors"
-	"log/slog"
-	"time"
 
 	"golang.org/x/time/rate"
 	"resty.dev/v3"
@@ -45,7 +43,11 @@ func (c *apiClient) initClientMiddlewares(ctx context.Context) {
 		if err != nil {
 			return err
 		}
-		slog.Info("request allowed at", "time", time.Now())
+
+		// uncomment if doubt about rate limiting
+		// TODO: remove in the nearest future
+		// slog.Info("request allowed at", "time", time.Now())
+
 		return nil
 	})
 }

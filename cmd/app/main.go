@@ -8,9 +8,12 @@ import (
 	"dtf/game_draw/internal/repositories"
 	"dtf/game_draw/internal/storage/sqlite"
 	"dtf/game_draw/internal/telegram"
+	"dtf/game_draw/internal/usecases"
+	"dtf/game_draw/pkg/dtfapi"
 	"fmt"
 	"log"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/go-co-op/gocron/v2"
@@ -23,14 +26,15 @@ const (
 )
 
 func main() {
-	deps := initDependencies(sqlitePath)
+	ctx := context.Background()
+	deps := initDependencies(ctx, sqlitePath)
 
 	bot, err := telegram.NewBot(deps.telegramSubsRepo)
 	if err != nil {
 		log.Fatalf("Fuck! Reason: %s", err)
 	}
 
-	schedulder := setupScheduledJobs(bot, deps.telegramSubsRepo)
+	schedulder := setupScheduledJobs(bot, deps.telegramSubsRepo, deps.activeRafflesUseCase)
 
 	go func() {
 		slog.Info("Starting scheduler")
@@ -42,27 +46,46 @@ func main() {
 }
 
 type Dependencies struct {
-	db               *sql.DB
+	db *sql.DB
+
+	// repos
 	telegramSubsRepo iRepo.TelegramSubscribersRepository
+	postRepo         iRepo.PostRepository
+
+	// usecases
+	activeRafflesUseCase *usecases.GetActiveRafflePostsUseCase
 }
 
-func initDependencies(dbPath string) *Dependencies {
+func initDependencies(ctx context.Context, dbPath string) *Dependencies {
 	db, err := sqlite.InitDB(dbPath)
 	if err != nil {
 		panic(fmt.Sprintf("Couldnt connect to DB. Reason: %s", err.Error()))
 	}
 
+	// external services
+	dtfClient := dtfapi.NewClient(ctx)
+	dtfService := dtfapi.NewService(dtfClient.Client())
+
+	// repos
 	var telegramSubsRepo iRepo.TelegramSubscribersRepository = repositories.NewSqliteTelegramSubRepository(db)
+	var postRepo iRepo.PostRepository = repositories.NewDtfPostRepository(dtfService)
+
+	// use cases
+	activeRafflesUseCase := usecases.NewGetActiveRafflePostsUseCase(postRepo)
 
 	return &Dependencies{
 		db:               db,
 		telegramSubsRepo: telegramSubsRepo,
+		postRepo:         postRepo,
+
+		activeRafflesUseCase: activeRafflesUseCase,
 	}
 }
 
 func setupScheduledJobs(
 	bot *telebot.Bot,
 	telegramSubRepo iRepo.TelegramSubscribersRepository,
+	activeRaffleUseCase *usecases.GetActiveRafflePostsUseCase,
 ) gocron.Scheduler {
 	s, err := gocron.NewScheduler()
 	if err != nil {
@@ -77,6 +100,19 @@ func setupScheduledJobs(
 			if err != nil {
 				slog.Error("Cron job error", "error", err)
 			}
+			// if no one is listening, exiting
+			if len(users) == 0 {
+				return
+			}
+
+			prevDay := time.Now().AddDate(0, 0, -1)
+			raffles, err := activeRaffleUseCase.Execute(prevDay)
+			text := prepareTelegramText(raffles)
+			if err != nil {
+				// TODO: retry logic
+				slog.Error("Cant load raffles from DTF", "error", err)
+				return
+			}
 			g := errgroup.Group{}
 			g.SetLimit(50)
 			for _, user := range users {
@@ -86,7 +122,7 @@ func setupScheduledJobs(
 					time.Sleep(50 * time.Millisecond)
 					_, err := bot.Send(&telebot.User{
 						ID: user.TelegramId,
-					}, "Привет чмо")
+					}, text)
 					if err != nil {
 						slog.Error(fmt.Sprintf("Error sending to %d", user.TelegramId))
 						erroredUsersCh <- user
@@ -107,4 +143,23 @@ func setupScheduledJobs(
 		gocron.WithSingletonMode(gocron.LimitModeReschedule),
 	)
 	return s
+}
+
+func prettyRaffle(post models.Post) string {
+	header := fmt.Sprintf("Новость %d: %s\n", post.Id, post.Title)
+	link := fmt.Sprintf("Ссылка: %s", post.Uri)
+
+	return header + link
+}
+
+func prepareTelegramText(posts []models.Post) string {
+	builder := strings.Builder{}
+	for i, post := range posts {
+		if i > 0 && i < len(posts) {
+			builder.WriteString("\n * * * \n")
+		}
+		text := prettyRaffle(post)
+		builder.WriteString(text)
+	}
+	return builder.String()
 }
