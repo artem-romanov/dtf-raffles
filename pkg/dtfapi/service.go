@@ -1,6 +1,8 @@
 package dtfapi
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"time"
@@ -35,13 +37,14 @@ type EmailLoginResponse struct {
 	} `json:"data"`
 }
 
-func (c *DtfService) EmailLogin(email, password string) (Tokens, error) {
+func (c *DtfService) EmailLogin(ctx context.Context, email, password string) (Tokens, error) {
 	var apiResult EmailLoginResponse
 	var apiError DtfErrorV3
 
 	resp, err := c.
 		client.
 		R().
+		SetContext(ctx).
 		SetMultipartFormData(map[string]string{
 			"email":    email,
 			"password": password,
@@ -85,13 +88,14 @@ type RefreshTokenResponse struct {
 
 // NOTE: because it refresh token operation, it will dispose previous pair
 // This method doesn't update user session
-func (c *DtfService) RefreshToken(refreshToken string) (Tokens, error) {
+func (c *DtfService) RefreshToken(ctx context.Context, refreshToken string) (Tokens, error) {
 	var apiResult RefreshTokenResponse
 	var apiError DtfErrorV3
 
 	resp, err := c.
 		client.
 		R().
+		SetContext(ctx).
 		SetResult(&apiResult).
 		SetError(&apiError).
 		SetMultipartFormData(map[string]string{
@@ -133,7 +137,7 @@ type SelfUserResponse struct {
 	}
 }
 
-func (c *DtfService) SelfUserInfo(accessToken string) (UserInfo, error) {
+func (c *DtfService) SelfUserInfo(ctx context.Context, accessToken string) (UserInfo, error) {
 	var apiResponse SelfUserResponse
 	var apiError DtfErrorV2
 
@@ -143,6 +147,7 @@ func (c *DtfService) SelfUserInfo(accessToken string) (UserInfo, error) {
 	}
 
 	resp, err := req.
+		SetContext(ctx).
 		SetResult(&apiResponse).
 		SetError(&apiError).
 		Get("/v2.1/subsite/me")
@@ -161,12 +166,20 @@ func (c *DtfService) SelfUserInfo(accessToken string) (UserInfo, error) {
 	}, nil
 }
 
+type PostBlock struct {
+	Type   string          `json:"type"`
+	Hidden bool            `json:"hidden"`
+	Cover  bool            `json:"cover"`
+	Data   json.RawMessage `json:"data"`
+}
+
 type PostResponse struct {
 	Data struct {
-		Id    int    `json:"id"`
-		Date  int    `json:"date"`
-		Title string `json:"title"`
-		Uri   string `json:"url"`
+		Id     int         `json:"id"`
+		Date   int         `json:"date"`
+		Title  string      `json:"title"`
+		Uri    string      `json:"url"`
+		Blocks []PostBlock `json:"blocks"`
 	} `json:"data"`
 }
 
@@ -176,12 +189,13 @@ type SearchPostResponse struct {
 	} `json:"result"`
 }
 
-func (c *DtfService) SearchNews(query string, dateFrom time.Time) ([]BlogPost, error) {
+func (c *DtfService) SearchNews(ctx context.Context, query string, dateFrom time.Time) ([]BlogPost, error) {
 	var apiResponse SearchPostResponse
 	var apiError DtfErrorV3
 
 	resp, err := c.client.
 		R().
+		SetContext(ctx).
 		SetQueryParams(map[string]string{
 			"markdown":  "false",
 			"sorting":   "date",
@@ -194,22 +208,53 @@ func (c *DtfService) SearchNews(query string, dateFrom time.Time) ([]BlogPost, e
 		SetResult(&apiResponse).
 		SetError(&apiError).
 		Get("/v2.8/search/posts")
-
 	if err != nil {
 		return nil, err
 	}
-
 	if resp.IsError() {
 		return nil, apiError
 	}
 
 	result := make([]BlogPost, 0, len(apiResponse.Result.Posts))
-
 	for _, apiPost := range apiResponse.Result.Posts {
+		var blocks []DataBlock
+
+		for _, block := range apiPost.Data.Blocks {
+			switch block.Type {
+			case "text":
+				var textBlock struct {
+					Text string `json:"text"`
+				}
+				err := json.Unmarshal(block.Data, &textBlock)
+				if err != nil {
+					return nil, err
+				}
+				blocks = append(blocks, DataText{
+					HtmlText: textBlock.Text,
+				})
+			case "header":
+				var headerBlock struct {
+					Style string `json:"style"`
+					Text  string `json:"text"`
+				}
+				err := json.Unmarshal(block.Data, &headerBlock)
+				if err != nil {
+					return nil, err
+				}
+				blocks = append(blocks, DataHeader{
+					Style: headerBlock.Style,
+					Text:  headerBlock.Text,
+				})
+			}
+			// TODO: Add other types when need comes
+			// Also might be better idea to export this code into another function
+		}
+
 		result = append(result, BlogPost{
-			Id:    apiPost.Data.Id,
-			Title: apiPost.Data.Title,
-			Uri:   apiPost.Data.Uri,
+			Id:     apiPost.Data.Id,
+			Title:  apiPost.Data.Title,
+			Uri:    apiPost.Data.Uri,
+			Blocks: blocks,
 		})
 	}
 
@@ -221,7 +266,7 @@ type ReactToPostRequest struct {
 }
 
 // Reacts to post with <Heart> reaction
-func (c *DtfService) ReactToPost(accessToken string, postId int) error {
+func (c *DtfService) ReactToPost(ctx context.Context, accessToken string, postId int) error {
 	var apiError DtfErrorV2
 
 	req, err := c.withAuth(accessToken)
@@ -230,6 +275,7 @@ func (c *DtfService) ReactToPost(accessToken string, postId int) error {
 	}
 
 	resp, err := req.
+		SetContext(ctx).
 		SetError(&apiError).
 		SetMultipartFormData(map[string]string{
 			"type": strconv.Itoa(1), // This is the HEART reaction Id (id == 1)
@@ -261,7 +307,7 @@ type PostCommentRequest struct {
 	Attachments []string `json:"attachments"`
 }
 
-func (c *DtfService) PostComment(accessToken string, postId int, text string) error {
+func (c *DtfService) PostComment(ctx context.Context, accessToken string, postId int, text string) error {
 	var apiError DtfErrorV2
 	req, err := c.withAuth(accessToken)
 	if err != nil {
@@ -269,6 +315,7 @@ func (c *DtfService) PostComment(accessToken string, postId int, text string) er
 	}
 
 	resp, err := req.
+		SetContext(ctx).
 		SetMultipartFormData(map[string]string{
 			"id":          strconv.Itoa(postId),
 			"text":        text,

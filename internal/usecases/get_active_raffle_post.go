@@ -1,6 +1,7 @@
 package usecases
 
 import (
+	"context"
 	"dtf/game_draw/internal/domain/models"
 	"dtf/game_draw/internal/domain/repositories"
 	"strings"
@@ -17,9 +18,9 @@ func NewGetActiveRafflePostsUseCase(repo repositories.PostRepository) *GetActive
 	}
 }
 
-func (uc *GetActiveRafflePostsUseCase) Execute(fromDate time.Time) ([]models.Post, error) {
+func (uc *GetActiveRafflePostsUseCase) Execute(ctx context.Context, fromDate time.Time) ([]models.Post, error) {
 	// getting all raffle (Розыгрыш) posts
-	posts, err := uc.postRepo.SearchPosts("Розыгрыш", fromDate)
+	posts, err := uc.postRepo.SearchPosts(ctx, "Розыгрыш", fromDate)
 	if err != nil {
 		return nil, err
 	}

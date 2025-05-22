@@ -23,12 +23,42 @@ func (t Tokens) IsAccessValid() bool {
 	return true
 }
 
-type BlogPost struct {
-	Id    int
-	Title string
-	Uri   string
+// POST Structs
+
+type DataBlock interface {
+	Type() string
 }
 
+type DataText struct {
+	HtmlText string
+}
+
+func (dt DataText) Type() string {
+	return "text"
+}
+
+type DataHeader struct {
+	Style string
+	Text  string
+}
+
+func (dt DataHeader) Type() string {
+	return "header"
+}
+
+// TODO: add other types in future,
+// right now it's fine to have only Text block
+// type DataImage struct {}
+
+type BlogPost struct {
+	Id             int
+	Title          string
+	Uri            string
+	RawDescription string
+	Blocks         []DataBlock
+}
+
+// USER Structs
 type UserInfo struct {
 	Id   int
 	Url  string

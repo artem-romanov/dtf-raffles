@@ -22,12 +22,12 @@ func (uc *LikeAndPostToRafflePostUseCase) Execute(ctx context.Context, userEmail
 		return err
 	}
 
-	err = uc.postRepo.ReactToPost(user, post)
+	err = uc.postRepo.ReactToPost(ctx, user, post)
 	if err != nil {
 		return err
 	}
 
-	err = uc.postRepo.PostComment(user, post, "Участвую")
+	err = uc.postRepo.PostComment(ctx, user, post, "Участвую")
 	if err != nil {
 		return err
 	}

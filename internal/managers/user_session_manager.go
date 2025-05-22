@@ -43,7 +43,7 @@ func (usm *userSessionManager) BuildSession(ctx context.Context, email string) (
 	// other gorutines will only receive results
 	newUserAny, err, _ := usm.refreshGroup.Do(email, func() (interface{}, error) {
 		slog.Info("Running singleflight", "user", user.Email)
-		newUser, err := usm.authRepo.RefreshToken(user)
+		newUser, err := usm.authRepo.RefreshToken(ctx, user)
 		if err != nil {
 			return models.DtfUserSession{}, err
 		}
@@ -62,7 +62,7 @@ func (usm *userSessionManager) BuildSession(ctx context.Context, email string) (
 }
 
 func (usm *userSessionManager) EmailLogin(ctx context.Context, email, password string) (models.DtfUserSession, error) {
-	user, err := usm.authRepo.Login(email, password)
+	user, err := usm.authRepo.Login(ctx, email, password)
 	if err == nil {
 		// Right now it's ok to skip if error
 		// TODO: test and think about it later

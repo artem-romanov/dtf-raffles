@@ -1,6 +1,7 @@
 package repositories
 
 import (
+	"context"
 	"dtf/game_draw/internal/domain"
 	"dtf/game_draw/internal/domain/models"
 	"dtf/game_draw/pkg/dtfapi"
@@ -17,8 +18,8 @@ func NewDtfAuthRepository(dtfService *dtfapi.DtfService) *dtfAuthRepository {
 	}
 }
 
-func (r *dtfAuthRepository) Login(email, password string) (models.DtfUserSession, error) {
-	tokens, err := r.dtfService.EmailLogin(email, password)
+func (r *dtfAuthRepository) Login(ctx context.Context, email, password string) (models.DtfUserSession, error) {
+	tokens, err := r.dtfService.EmailLogin(ctx, email, password)
 
 	if err != nil {
 		if errors.Is(err, dtfapi.ErrInvalidCredentials) {
@@ -36,8 +37,8 @@ func (r *dtfAuthRepository) Login(email, password string) (models.DtfUserSession
 
 }
 
-func (r *dtfAuthRepository) RefreshToken(user models.DtfUserSession) (models.DtfUserSession, error) {
-	tokens, err := r.dtfService.RefreshToken(user.RefreshToken)
+func (r *dtfAuthRepository) RefreshToken(ctx context.Context, user models.DtfUserSession) (models.DtfUserSession, error) {
+	tokens, err := r.dtfService.RefreshToken(ctx, user.RefreshToken)
 	if err != nil {
 		return models.DtfUserSession{}, err
 	}
@@ -50,8 +51,8 @@ func (r *dtfAuthRepository) RefreshToken(user models.DtfUserSession) (models.Dtf
 	}, nil
 }
 
-func (r *dtfAuthRepository) SelfInfo(user models.DtfUserSession) (models.DtfUserInfo, error) {
-	response, err := r.dtfService.SelfUserInfo(user.AccessToken)
+func (r *dtfAuthRepository) SelfInfo(ctx context.Context, user models.DtfUserSession) (models.DtfUserInfo, error) {
+	response, err := r.dtfService.SelfUserInfo(ctx, user.AccessToken)
 	if err != nil {
 		return models.DtfUserInfo{}, err
 	}

@@ -1,6 +1,7 @@
 package repositories
 
 import (
+	"context"
 	"dtf/game_draw/internal/domain/models"
 	"dtf/game_draw/pkg/dtfapi"
 	"log/slog"
@@ -17,8 +18,8 @@ func NewDtfPostRepository(dtfService *dtfapi.DtfService) *dtfPostRepository {
 	}
 }
 
-func (r dtfPostRepository) SearchPosts(query string, dateFrom time.Time) ([]models.Post, error) {
-	news, err := r.dtfService.SearchNews(query, dateFrom)
+func (r dtfPostRepository) SearchPosts(ctx context.Context, query string, dateFrom time.Time) ([]models.Post, error) {
+	news, err := r.dtfService.SearchNews(ctx, query, dateFrom)
 	if err != nil {
 		return nil, err
 	}
@@ -36,8 +37,8 @@ func (r dtfPostRepository) SearchPosts(query string, dateFrom time.Time) ([]mode
 	return posts, nil
 }
 
-func (r dtfPostRepository) ReactToPost(user models.DtfUserSession, post models.Post) error {
-	err := r.dtfService.ReactToPost(user.AccessToken, int(post.Id))
+func (r dtfPostRepository) ReactToPost(ctx context.Context, user models.DtfUserSession, post models.Post) error {
+	err := r.dtfService.ReactToPost(ctx, user.AccessToken, int(post.Id))
 	if err != nil {
 		return err
 	}
@@ -45,8 +46,8 @@ func (r dtfPostRepository) ReactToPost(user models.DtfUserSession, post models.P
 	return nil
 }
 
-func (r dtfPostRepository) PostComment(user models.DtfUserSession, post models.Post, text string) error {
-	err := r.dtfService.PostComment(user.AccessToken, int(post.Id), text)
+func (r dtfPostRepository) PostComment(ctx context.Context, user models.DtfUserSession, post models.Post, text string) error {
+	err := r.dtfService.PostComment(ctx, user.AccessToken, int(post.Id), text)
 	if err != nil {
 		return err
 	}

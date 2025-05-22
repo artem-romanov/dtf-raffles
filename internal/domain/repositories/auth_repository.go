@@ -1,10 +1,12 @@
 package repositories
 
-import "dtf/game_draw/internal/domain/models"
+import (
+	"context"
+	"dtf/game_draw/internal/domain/models"
+)
 
-// TODO: add context to all methods
 type AuthRepository interface {
-	Login(email, password string) (models.DtfUserSession, error)
-	RefreshToken(user models.DtfUserSession) (models.DtfUserSession, error)
-	SelfInfo(user models.DtfUserSession) (models.DtfUserInfo, error)
+	Login(ctx context.Context, email, password string) (models.DtfUserSession, error)
+	RefreshToken(ctx context.Context, user models.DtfUserSession) (models.DtfUserSession, error)
+	SelfInfo(ctx context.Context, user models.DtfUserSession) (models.DtfUserInfo, error)
 }

@@ -14,7 +14,9 @@ import (
 	"fmt"
 	"log"
 	"log/slog"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/go-co-op/gocron/v2"
@@ -23,12 +25,14 @@ import (
 )
 
 func main() {
-	ctx := context.Background()
+
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
 	config, err := internal.NewConfig()
 	if err != nil {
 		log.Fatalf("Config error: %s", err)
 	}
-	fmt.Println(config)
 
 	deps := initDependencies(ctx, config.DbPath)
 
@@ -43,9 +47,16 @@ func main() {
 		slog.Info("Starting scheduler")
 		schedulder.Start()
 	}()
-	slog.Info("Bot starts...")
-	bot.Start()
+
+	go func() {
+		slog.Info("Bot starts...")
+		bot.Start()
+	}()
+
+	<-ctx.Done()
+	stop()
 	slog.Info("App ends")
+
 }
 
 type Dependencies struct {
@@ -109,7 +120,7 @@ func setupScheduledJobs(
 			}
 
 			prevDay := time.Now().AddDate(0, 0, -1)
-			raffles, err := activeRaffleUseCase.Execute(prevDay)
+			raffles, err := activeRaffleUseCase.Execute(ctx, prevDay)
 			text := prepareTelegramText(raffles)
 			if err != nil {
 				// TODO: retry logic
