@@ -136,7 +136,10 @@ func setupScheduledJobs(
 					time.Sleep(50 * time.Millisecond)
 					_, err := bot.Send(&telebot.User{
 						ID: user.TelegramId,
-					}, text)
+					}, text, &telebot.SendOptions{
+						ParseMode:             telebot.ModeHTML,
+						DisableWebPagePreview: true,
+					})
 					if err != nil {
 						slog.Error(fmt.Sprintf("Error sending to %d", user.TelegramId))
 						erroredUsersCh <- user
@@ -160,10 +163,11 @@ func setupScheduledJobs(
 }
 
 func prettyRaffle(post models.Post) string {
-	header := fmt.Sprintf("Новость %d: %s\n", post.Id, post.Title)
-	link := fmt.Sprintf("Ссылка: %s", post.Uri)
+	header := fmt.Sprintf("<b>Розыгрыш</b>: %s\n", post.Title)
+	description := fmt.Sprintf("<b>Описание:</b>\n<blockquote expandable>%s</blockquote>", post.Text)
+	link := fmt.Sprintf("<b>Ссылка:</b> %s", post.Uri)
 
-	return header + link
+	return header + description + link
 }
 
 func prepareTelegramText(posts []models.Post) string {

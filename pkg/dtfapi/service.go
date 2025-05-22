@@ -19,10 +19,6 @@ type DtfService struct {
 func NewService(client *resty.Client) *DtfService {
 	client.SetBaseURL(DtfApi)
 
-	// TODO: Introduce 10 different user agents and pick randomly
-	chromeUserAgent := "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36"
-	client.SetHeader("User-agent", chromeUserAgent)
-
 	return &DtfService{
 		client: client,
 	}
@@ -189,7 +185,11 @@ type SearchPostResponse struct {
 	} `json:"result"`
 }
 
-func (c *DtfService) SearchNews(ctx context.Context, query string, dateFrom time.Time) ([]BlogPost, error) {
+func (c *DtfService) SearchNews(
+	ctx context.Context,
+	query string,
+	dateFrom time.Time,
+) ([]BlogPost, error) {
 	var apiResponse SearchPostResponse
 	var apiError DtfErrorV3
 
@@ -266,7 +266,11 @@ type ReactToPostRequest struct {
 }
 
 // Reacts to post with <Heart> reaction
-func (c *DtfService) ReactToPost(ctx context.Context, accessToken string, postId int) error {
+func (c *DtfService) ReactToPost(
+	ctx context.Context,
+	accessToken string,
+	postId int,
+) error {
 	var apiError DtfErrorV2
 
 	req, err := c.withAuth(accessToken)
