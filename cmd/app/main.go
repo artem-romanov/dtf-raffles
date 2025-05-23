@@ -139,6 +139,12 @@ func setupScheduledJobs(
 				slog.Error("Cant load raffles from DTF", "error", err)
 				return
 			}
+			// dont bother users when no active raffles
+			if len(raffles) == 0 {
+				return
+			}
+
+			// ok, lets send this shit to users
 			g := errgroup.Group{}
 			g.SetLimit(50)
 			for _, user := range users {

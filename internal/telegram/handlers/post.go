@@ -31,6 +31,10 @@ func (h *TelegramPostHandlers) GetTodayRaffles(ctx telebot.Context) error {
 		return ctx.Send("Прости друг, не смог достать новости. Попробуй позже.")
 	}
 
+	if len(posts) == 0 {
+		return ctx.Send("За сегодня не было розыгрышей")
+	}
+
 	response := telegram_utils.ManyPostsToTelegramText(posts)
 	return ctx.Send(response, telebot.NoPreview)
 }
