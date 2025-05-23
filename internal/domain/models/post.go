@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/guregu/null/v6"
 	"github.com/k3a/html2text"
 )
 
@@ -27,11 +28,12 @@ type DataHeader struct {
 func (d DataHeader) Type() string { return "header" }
 
 type Post struct {
-	Id     int64
-	Title  string
-	Text   string // cleaned from html and concatenated text
-	Uri    string
-	Blocks []DataBlock
+	Id        int64
+	Title     string
+	Text      string // cleaned from html and concatenated text
+	Uri       string
+	Blocks    []DataBlock
+	RepliedTo null.Int32 // if not null - post is a reply to that post
 }
 
 func (p Post) Print() {
@@ -72,10 +74,11 @@ func FromDtfPost(post dtfapi.BlogPost) (Post, error) {
 	}
 
 	return Post{
-		Id:     int64(post.Id),
-		Title:  post.Title,
-		Uri:    post.Uri,
-		Text:   cleanedTextBuilder.String(),
-		Blocks: blocks,
+		Id:        int64(post.Id),
+		Title:     post.Title,
+		Uri:       post.Uri,
+		Text:      cleanedTextBuilder.String(),
+		Blocks:    blocks,
+		RepliedTo: post.RepliedTo,
 	}, nil
 }

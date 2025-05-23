@@ -28,7 +28,7 @@ func (uc *GetActiveRafflePostsUseCase) Execute(ctx context.Context, fromDate tim
 	// filtering and keeping only ongoing posts
 	var result []models.Post
 	for _, post := range posts {
-		if isEnded(post.Title) {
+		if isEnded(post.Title) || post.RepliedTo.Valid {
 			continue
 		}
 		result = append(result, post)

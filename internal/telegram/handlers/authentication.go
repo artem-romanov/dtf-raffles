@@ -17,8 +17,8 @@ type TelegramAuthHandlers struct {
 
 func NewTelegramAuthHandlers(
 	telegramSessionRepo repositories.TelegramSubscribersRepository,
-) TelegramAuthHandlers {
-	return TelegramAuthHandlers{
+) *TelegramAuthHandlers {
+	return &TelegramAuthHandlers{
 		telegramSessionRepo: telegramSessionRepo,
 	}
 }
@@ -39,7 +39,7 @@ func (h *TelegramAuthHandlers) Subscribe(ctx tele.Context) error {
 		return ctx.Send(telegram_utils.ErrTextUnknown)
 	}
 
-	return ctx.Send("Готов. Теперь я буду присылать тебе обновления.")
+	return ctx.Send("Готово. Теперь я буду присылать тебе обновления каждый день в 14:00.")
 }
 
 func (h *TelegramAuthHandlers) Unsubscribe(ctx tele.Context) error {
@@ -52,7 +52,7 @@ func (h *TelegramAuthHandlers) Unsubscribe(ctx tele.Context) error {
 	err := h.telegramSessionRepo.UnregisterUser(context.TODO(), nil, user.ID)
 	if err != nil {
 		if errors.Is(err, domain.ErrTelegramUserNotFound) {
-			return ctx.Send("Ошибка. Ты не был зарегестрирован, нечего удалять.")
+			return ctx.Send("Ошибка. Ты не был зарегистрирован, нечего удалять.")
 		}
 		return ctx.Send(telegram_utils.ErrTextUnknown)
 	}
@@ -60,5 +60,5 @@ func (h *TelegramAuthHandlers) Unsubscribe(ctx tele.Context) error {
 	// TODO: Remove dtf session too
 	// there should be use case with transaction....
 
-	return ctx.Send("Готово. Больше этот бред получать не будешь.")
+	return ctx.Send("Готово. Больше обновления получать не будешь.")
 }

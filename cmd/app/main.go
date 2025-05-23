@@ -9,13 +9,13 @@ import (
 	"dtf/game_draw/internal/repositories"
 	"dtf/game_draw/internal/storage/sqlite"
 	"dtf/game_draw/internal/telegram"
+	telegram_utils "dtf/game_draw/internal/telegram/utils"
 	"dtf/game_draw/internal/usecases"
 	"dtf/game_draw/pkg/dtfapi"
 	"fmt"
 	"log"
 	"log/slog"
 	"os/signal"
-	"strings"
 	"syscall"
 	"time"
 
@@ -36,7 +36,11 @@ func main() {
 
 	deps := initDependencies(ctx, config.DbPath)
 
-	bot, err := telegram.NewBot(config.TelegramToken, deps.telegramSubsRepo)
+	bot, err := telegram.NewBot(
+		config.TelegramToken,
+		deps.telegramSubsRepo,
+		deps.activeRafflesUseCase,
+	)
 	if err != nil {
 		log.Fatalf("Fuck! Reason: %s", err)
 	}
@@ -107,7 +111,9 @@ func setupScheduledJobs(
 	}
 
 	s.NewJob(
-		gocron.DurationJob(10*time.Second),
+		gocron.DailyJob(1, gocron.NewAtTimes(
+			gocron.NewAtTime(14, 0, 0),
+		)),
 		gocron.NewTask(func(ctx context.Context) {
 			users, err := telegramSubRepo.GetAll(ctx)
 			erroredUsersCh := make(chan models.TelegramSession, len(users))
@@ -137,7 +143,6 @@ func setupScheduledJobs(
 					_, err := bot.Send(&telebot.User{
 						ID: user.TelegramId,
 					}, text, &telebot.SendOptions{
-						ParseMode:             telebot.ModeHTML,
 						DisableWebPagePreview: true,
 					})
 					if err != nil {
@@ -162,22 +167,6 @@ func setupScheduledJobs(
 	return s
 }
 
-func prettyRaffle(post models.Post) string {
-	header := fmt.Sprintf("<b>Розыгрыш</b>: %s\n", post.Title)
-	description := fmt.Sprintf("<b>Описание:</b>\n<blockquote expandable>%s</blockquote>", post.Text)
-	link := fmt.Sprintf("<b>Ссылка:</b> %s", post.Uri)
-
-	return header + description + link
-}
-
 func prepareTelegramText(posts []models.Post) string {
-	builder := strings.Builder{}
-	for i, post := range posts {
-		if i > 0 && i < len(posts) {
-			builder.WriteString("\n * * * \n")
-		}
-		text := prettyRaffle(post)
-		builder.WriteString(text)
-	}
-	return builder.String()
+	return telegram_utils.ManyPostsToTelegramText(posts)
 }

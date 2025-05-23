@@ -4,6 +4,7 @@ import (
 	"dtf/game_draw/internal/domain/repositories"
 	telegram_handlers "dtf/game_draw/internal/telegram/handlers"
 	telegram_middlewares "dtf/game_draw/internal/telegram/middlewares"
+	"dtf/game_draw/internal/usecases"
 	"fmt"
 	"time"
 
@@ -13,9 +14,11 @@ import (
 func NewBot(
 	botToken string,
 	telegramSessionRepo repositories.TelegramSubscribersRepository,
+	activeRafflesUseCase *usecases.GetActiveRafflePostsUseCase,
 ) (*tele.Bot, error) {
 	botSettings := tele.Settings{
-		Token: botToken,
+		ParseMode: tele.ModeHTML,
+		Token:     botToken,
 		Poller: &tele.LongPoller{
 			Timeout: 10 * time.Second,
 		},
@@ -35,12 +38,18 @@ func NewBot(
 	authHandlers := telegram_handlers.NewTelegramAuthHandlers(
 		telegramSessionRepo,
 	)
+	postHandlrs := telegram_handlers.NewTelegramPostHandlers(
+		activeRafflesUseCase,
+	)
+
 	bot.Handle("/start", func(ctx tele.Context) error {
 		return ctx.Send("Попробуй зарегаться, чмо")
 	})
 
 	bot.Handle("/subscribe", authHandlers.Subscribe)
 	bot.Handle("/unsubscribe", authHandlers.Unsubscribe)
+
+	bot.Handle("/today_raffles", postHandlrs.GetTodayRaffles)
 
 	return bot, nil
 }
@@ -61,6 +70,10 @@ func setCommands(bot *tele.Bot) error {
 		{
 			Text:        "/unsubscribe",
 			Description: "Отписаться от уведомлений и уничтожить свою ДТФ сессию",
+		},
+		{
+			Text:        "/today_raffles",
+			Description: "Получить список последних розыгрышей",
 		},
 	}
 

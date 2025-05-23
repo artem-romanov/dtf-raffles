@@ -2,6 +2,8 @@ package dtfapi
 
 import (
 	"time"
+
+	"github.com/guregu/null/v6"
 )
 
 type Tokens struct {
@@ -51,11 +53,11 @@ func (dt DataHeader) Type() string {
 // type DataImage struct {}
 
 type BlogPost struct {
-	Id             int
-	Title          string
-	Uri            string
-	RawDescription string
-	Blocks         []DataBlock
+	Id        int
+	Title     string
+	Uri       string
+	Blocks    []DataBlock
+	RepliedTo null.Int32 // if not null - it is a reply to that original post
 }
 
 // USER Structs

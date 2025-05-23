@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/guregu/null/v6"
 	"resty.dev/v3"
 )
 
@@ -171,11 +172,12 @@ type PostBlock struct {
 
 type PostResponse struct {
 	Data struct {
-		Id     int         `json:"id"`
-		Date   int         `json:"date"`
-		Title  string      `json:"title"`
-		Uri    string      `json:"url"`
-		Blocks []PostBlock `json:"blocks"`
+		Id       int         `json:"id"`
+		Date     int         `json:"date"`
+		Title    string      `json:"title"`
+		Uri      string      `json:"url"`
+		Blocks   []PostBlock `json:"blocks"`
+		RepostId null.Int32  `json:"repostId"`
 	} `json:"data"`
 }
 
@@ -251,10 +253,11 @@ func (c *DtfService) SearchNews(
 		}
 
 		result = append(result, BlogPost{
-			Id:     apiPost.Data.Id,
-			Title:  apiPost.Data.Title,
-			Uri:    apiPost.Data.Uri,
-			Blocks: blocks,
+			Id:        apiPost.Data.Id,
+			Title:     apiPost.Data.Title,
+			Uri:       apiPost.Data.Uri,
+			Blocks:    blocks,
+			RepliedTo: apiPost.Data.RepostId,
 		})
 	}
 
