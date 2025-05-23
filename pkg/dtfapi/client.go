@@ -57,8 +57,8 @@ func (c *apiClient) initClientMiddlewares(ctx context.Context) {
 		r.SetHeader("User-agent", userAgent)
 		return nil
 	})
-	c.client.AddRequestMiddleware(func(_ *resty.Client, _ *resty.Request) error {
-		err := c.limiter.Wait(ctx)
+	c.client.AddRequestMiddleware(func(_ *resty.Client, r *resty.Request) error {
+		err := c.limiter.Wait(r.Context())
 		if err != nil {
 			return err
 		}

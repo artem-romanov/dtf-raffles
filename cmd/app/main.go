@@ -105,7 +105,13 @@ func setupScheduledJobs(
 	telegramSubRepo iRepo.TelegramSubscribersRepository,
 	activeRaffleUseCase *usecases.GetActiveRafflePostsUseCase,
 ) gocron.Scheduler {
-	s, err := gocron.NewScheduler()
+	location, err := time.LoadLocation("Europe/Moscow")
+	if err != nil {
+		panic("Cant load location: " + err.Error())
+	}
+	s, err := gocron.NewScheduler(
+		gocron.WithLocation(location),
+	)
 	if err != nil {
 		panic(fmt.Sprintf("Can't setup a cron. Reason: %s", err.Error()))
 	}
@@ -142,9 +148,7 @@ func setupScheduledJobs(
 					time.Sleep(50 * time.Millisecond)
 					_, err := bot.Send(&telebot.User{
 						ID: user.TelegramId,
-					}, text, &telebot.SendOptions{
-						DisableWebPagePreview: true,
-					})
+					}, text, telebot.NoPreview)
 					if err != nil {
 						slog.Error(fmt.Sprintf("Error sending to %d", user.TelegramId))
 						erroredUsersCh <- user
