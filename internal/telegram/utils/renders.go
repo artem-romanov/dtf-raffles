@@ -21,9 +21,6 @@ func PostToTelegramText(post models.Post, short bool) string {
 
 	sb.WriteString(fmt.Sprintf("<b>Ссылка:</b> %s", post.Uri))
 
-	if post.Text == "" || short {
-		sb.WriteString("<i>\n\nОписания слишком длинные, укорочено</i>")
-	}
 	return sb.String()
 }
 
@@ -35,6 +32,9 @@ func ManyPostsToTelegramText(posts []models.Post, short bool) string {
 		}
 		text := PostToTelegramText(post, short)
 		builder.WriteString(text)
+	}
+	if short {
+		builder.WriteString("<i>\n\nОписания слишком длинные, укорочено</i>")
 	}
 	return builder.String()
 }
