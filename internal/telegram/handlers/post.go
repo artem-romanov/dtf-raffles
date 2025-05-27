@@ -5,7 +5,6 @@ import (
 	telegram_utils "dtf/game_draw/internal/telegram/utils"
 	"dtf/game_draw/internal/usecases"
 	"errors"
-	"fmt"
 	"log/slog"
 	"time"
 
@@ -42,7 +41,6 @@ func (h *TelegramPostHandlers) GetTodayRaffles(ctx telebot.Context) error {
 	// and it will screw up sending with "message is too long (400)" error
 	// in that case lets send shorten version without description
 	if telegram_utils.IsTooLongForTelegramPost(response) {
-		fmt.Println("пиздец")
 		response = telegram_utils.ManyPostsToTelegramText(posts, true)
 	}
 	if err = ctx.Send(response, telebot.NoPreview); err == nil {

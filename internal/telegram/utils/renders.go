@@ -13,7 +13,6 @@ func PostToTelegramText(post models.Post, short bool) string {
 	sb.WriteString(fmt.Sprintf("<b>Розыгрыш</b>: %s\n", post.Title))
 
 	if post.Text != "" && !short {
-		fmt.Println("...adding descriptions", short)
 		sb.WriteString(
 			fmt.Sprintf("<b>Описание:</b>\n<blockquote expandable>%s</blockquote>", post.Text),
 		)
