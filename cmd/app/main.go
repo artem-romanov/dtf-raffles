@@ -133,7 +133,6 @@ func setupScheduledJobs(
 
 			prevDay := time.Now().AddDate(0, 0, -1)
 			raffles, err := activeRaffleUseCase.Execute(ctx, prevDay)
-			text := prepareTelegramText(raffles)
 			if err != nil {
 				// TODO: retry logic
 				slog.Error("Cant load raffles from DTF", "error", err)
@@ -143,8 +142,8 @@ func setupScheduledJobs(
 			if len(raffles) == 0 {
 				return
 			}
-
 			// ok, lets send this shit to users
+			text := prepareTelegramText(raffles)
 			g := errgroup.Group{}
 			g.SetLimit(50)
 			for _, user := range users {
@@ -152,10 +151,15 @@ func setupScheduledJobs(
 					// sleeping before send
 					// this is to avoid ban from telegram
 					time.Sleep(50 * time.Millisecond)
-					_, err := bot.Send(&telebot.User{
-						ID: user.TelegramId,
-					}, text, telebot.NoPreview)
+					_, err := bot.Send(
+						&telebot.User{
+							ID: user.TelegramId,
+						},
+						text,
+						telebot.NoPreview,
+					)
 					if err != nil {
+
 						slog.Error(fmt.Sprintf("Error sending to %d", user.TelegramId))
 						erroredUsersCh <- user
 						return nil
@@ -178,5 +182,10 @@ func setupScheduledJobs(
 }
 
 func prepareTelegramText(posts []models.Post) string {
-	return telegram_utils.ManyPostsToTelegramText(posts)
+	text := telegram_utils.ManyPostsToTelegramText(posts, false)
+	if telegram_utils.IsTooLongForTelegramPost(text) {
+		// do the shorten version
+		text = telegram_utils.ManyPostsToTelegramText(posts, true)
+	}
+	return text
 }
