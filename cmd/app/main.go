@@ -159,8 +159,7 @@ func setupScheduledJobs(
 						telebot.NoPreview,
 					)
 					if err != nil {
-
-						slog.Error(fmt.Sprintf("Error sending to %d", user.TelegramId))
+						slog.Error(fmt.Sprintf("Error sending to %d, error: %v", user.TelegramId, err.Error()))
 						erroredUsersCh <- user
 						return nil
 					}
