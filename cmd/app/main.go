@@ -12,6 +12,7 @@ import (
 	telegram_utils "dtf/game_draw/internal/telegram/utils"
 	"dtf/game_draw/internal/usecases"
 	"dtf/game_draw/pkg/dtfapi"
+	"errors"
 	"fmt"
 	"log"
 	"log/slog"
@@ -34,7 +35,12 @@ func main() {
 		log.Fatalf("Config error: %s", err)
 	}
 
-	deps := initDependencies(ctx, config.DbPath)
+	deps, cleanup := initDependencies(ctx, config.DbPath)
+	defer func() {
+		if err := cleanup(); err != nil {
+			slog.Error("dependencies cleanup error", "err", err)
+		}
+	}()
 
 	bot, err := telegram.NewBot(
 		config.TelegramToken,
@@ -46,6 +52,7 @@ func main() {
 	}
 
 	schedulder := setupScheduledJobs(bot, deps.telegramSubsRepo, deps.activeRafflesUseCase)
+	defer schedulder.Shutdown()
 
 	go func() {
 		slog.Info("Starting scheduler")
@@ -74,7 +81,7 @@ type Dependencies struct {
 	activeRafflesUseCase *usecases.GetActiveRafflePostsUseCase
 }
 
-func initDependencies(ctx context.Context, dbPath string) *Dependencies {
+func initDependencies(ctx context.Context, dbPath string) (*Dependencies, func() error) {
 	db, err := sqlite.InitDB(dbPath)
 	if err != nil {
 		panic(fmt.Sprintf("Couldnt connect to DB. Reason: %s", err.Error()))
@@ -91,13 +98,31 @@ func initDependencies(ctx context.Context, dbPath string) *Dependencies {
 	// use cases
 	activeRafflesUseCase := usecases.NewGetActiveRafflePostsUseCase(postRepo)
 
+	// function to clean all generated shit
+	cleanup := func() error {
+		var errs []error
+		if err := db.Close(); err != nil {
+			errs = append(errs, err)
+		}
+
+		if err := dtfClient.Close(); err != nil {
+			errs = append(errs, err)
+		}
+
+		if len(errs) != 0 {
+			return errors.Join(errs...)
+		}
+
+		return nil
+	}
+
 	return &Dependencies{
 		db:               db,
 		telegramSubsRepo: telegramSubsRepo,
 		postRepo:         postRepo,
 
 		activeRafflesUseCase: activeRafflesUseCase,
-	}
+	}, cleanup
 }
 
 func setupScheduledJobs(
