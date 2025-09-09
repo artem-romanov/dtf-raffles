@@ -7,6 +7,7 @@ import (
 	"dtf/game_draw/internal/domain/repositories"
 	"dtf/game_draw/internal/utils"
 	"errors"
+	"fmt"
 	"log/slog"
 
 	"golang.org/x/sync/singleflight"
@@ -48,17 +49,21 @@ func (usm *userSessionManager) BuildSession(ctx context.Context, email string) (
 			return models.DtfUserSession{}, err
 		}
 
-		// Right now it's ok to skip if error
-		// TODO: test and think about it later
-		usm.persistUser(ctx, newUser)
+		if err := usm.persistUser(ctx, user); err != nil {
+			slog.Error("Failed to persist user", "email", user.Email, "error", err)
+			return models.DtfUserSession{}, err
+		}
 		return newUser, nil
 	})
 	if err != nil {
 		return models.DtfUserSession{}, err
 	}
 
-	// mmm, not sure its safe
-	return newUserAny.(models.DtfUserSession), nil
+	newUser, ok := newUserAny.(models.DtfUserSession)
+	if !ok {
+		return models.DtfUserSession{}, fmt.Errorf("invalid type assertion for user session")
+	}
+	return newUser, nil
 }
 
 func (usm *userSessionManager) EmailLogin(ctx context.Context, email, password string) (models.DtfUserSession, error) {
