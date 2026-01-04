@@ -22,6 +22,7 @@ import (
 
 	"github.com/go-co-op/gocron/v2"
 	"golang.org/x/sync/errgroup"
+	"golang.org/x/time/rate"
 	"gopkg.in/telebot.v4"
 )
 
@@ -147,7 +148,6 @@ func setupScheduledJobs(
 		)),
 		gocron.NewTask(func(ctx context.Context) {
 			users, err := telegramSubRepo.GetAll(ctx)
-			erroredUsersCh := make(chan models.TelegramSession, len(users))
 			if err != nil {
 				slog.Error("Cron job error", "error", err)
 			}
@@ -167,38 +167,18 @@ func setupScheduledJobs(
 			if len(raffles) == 0 {
 				return
 			}
+
 			// ok, lets send this shit to users
 			text := prepareTelegramText(raffles)
-			g := errgroup.Group{}
-			g.SetLimit(50)
-			for _, user := range users {
-				g.Go(func() error {
-					// sleeping before send
-					// this is to avoid ban from telegram
-					time.Sleep(50 * time.Millisecond)
-					_, err := bot.Send(
-						&telebot.User{
-							ID: user.TelegramId,
-						},
-						text,
-						telebot.NoPreview,
-					)
-					if err != nil {
-						slog.Error(fmt.Sprintf("Error sending to %d, error: %v", user.TelegramId, err.Error()))
-						erroredUsersCh <- user
-						return nil
-					}
-					return nil
-				})
+			if err := sendWithRetries(
+				ctx,
+				bot,
+				text,
+				users,
+			); err != nil {
+				slog.Error("Error sending raffles by schedule", "err", err)
 			}
-			g.Wait()
-			close(erroredUsersCh)
 
-			var erroredUsers []models.TelegramSession
-			for user := range erroredUsersCh {
-				erroredUsers = append(erroredUsers, user)
-			}
-			// TODO: think what to do with errors
 		}),
 		gocron.WithSingletonMode(gocron.LimitModeReschedule),
 	)
@@ -212,4 +192,80 @@ func prepareTelegramText(posts []models.Post) string {
 		text = telegram_utils.ManyPostsToTelegramText(posts, true)
 	}
 	return text
+}
+
+func sendWithRetries(
+	ctx context.Context,
+	bot *telebot.Bot,
+	message string,
+	users []models.TelegramSession,
+) error {
+	maxRetries := 3
+	maxConcurrentLimit := 10
+	failed := users
+	baseBackoff := 100 * time.Millisecond
+
+	// telegram forbids sending more than 30 messages per 1 second
+	// https://core.telegram.org/bots/faq#my-bot-is-hitting-limits-how-do-i-avoid-this
+	maxSendsPerSec := 30
+	limiter := rate.NewLimiter(rate.Limit(maxSendsPerSec), 1)
+
+	for attempt := 1; attempt <= maxRetries && len(failed) > 0; attempt++ {
+		attemptFailedUsers := make(chan models.TelegramSession, len(failed))
+		lastAttempt := attempt == maxRetries
+		g := errgroup.Group{}
+		g.SetLimit(maxConcurrentLimit)
+
+		for _, user := range failed {
+			g.Go(func() error {
+				if err := limiter.Wait(ctx); err != nil {
+					return nil
+				}
+
+				_, err := bot.Send(
+					&telebot.User{ID: user.TelegramId},
+					message,
+					telebot.NoPreview,
+				)
+				if lastAttempt && err != nil {
+					slog.Error(
+						fmt.Sprintf(
+							"Error sending to %d, error: %v", user.TelegramId, err.Error(),
+						),
+					)
+				}
+				if err != nil {
+					attemptFailedUsers <- user
+					return nil
+				}
+				return nil
+			})
+		}
+		g.Wait()
+		close(attemptFailedUsers)
+
+		// reconstruct failed slice
+		failed = make([]models.TelegramSession, 0)
+		for u := range attemptFailedUsers {
+			failed = append(failed, u)
+		}
+		if len(failed) == 0 {
+			return nil
+		}
+
+		if len(failed) > 0 && attempt < maxRetries {
+			backoff := baseBackoff * time.Duration(1<<(attempt-1))
+			time.Sleep(backoff)
+		}
+	}
+
+	if len(failed) > 0 && len(failed) == len(users) {
+		return errors.New("failed to send data to every recepient")
+	}
+
+	if len(failed) > 0 && len(failed) != len(users) {
+		return errors.New("sent partially")
+	}
+
+	return nil
 }
