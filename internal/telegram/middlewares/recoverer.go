@@ -11,7 +11,7 @@ func RecoverMiddleware(next tele.HandlerFunc) tele.HandlerFunc {
 		defer func() {
 			r := recover()
 			if r != nil {
-				slog.Error("Recoverd from panic: ", "err", r)
+				slog.Error("Recovered from tg panic: ", "err", r)
 			}
 		}()
 		return next(c)
