@@ -29,10 +29,9 @@ func NewBot(
 		return nil, err
 	}
 
-	initalizeMiddlewares(bot)
-	err = setCommands(bot)
-	if err != nil {
-		panic(fmt.Sprintf("Can't set commands. Reason: %s", err.Error()))
+	initMiddlewares(bot)
+	if err := setCommands(bot); err != nil {
+		return nil, fmt.Errorf("can't set bot commands: %w", err)
 	}
 
 	authHandlers := telegram_handlers.NewTelegramAuthHandlers(
@@ -48,13 +47,12 @@ func NewBot(
 
 	bot.Handle("/subscribe", authHandlers.Subscribe)
 	bot.Handle("/unsubscribe", authHandlers.Unsubscribe)
-
 	bot.Handle("/today_raffles", postHandlrs.GetTodayRaffles)
 
 	return bot, nil
 }
 
-func initalizeMiddlewares(bot *tele.Bot) *tele.Bot {
+func initMiddlewares(bot *tele.Bot) *tele.Bot {
 	bot.Use(
 		telegram_middlewares.RecoverMiddleware,
 	)

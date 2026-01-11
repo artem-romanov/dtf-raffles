@@ -133,16 +133,16 @@ func setupScheduledJobs(
 ) gocron.Scheduler {
 	location, err := time.LoadLocation("Europe/Moscow")
 	if err != nil {
-		panic("Cant load location: " + err.Error())
+		log.Fatalf("Cant load location: %v\n", err)
 	}
 	s, err := gocron.NewScheduler(
 		gocron.WithLocation(location),
 	)
 	if err != nil {
-		panic(fmt.Sprintf("Can't setup a cron. Reason: %s", err.Error()))
+		log.Fatalf("Can't setup a cron. Reason: %v\n", err)
 	}
 
-	s.NewJob(
+	_, err = s.NewJob(
 		gocron.DailyJob(1, gocron.NewAtTimes(
 			gocron.NewAtTime(14, 0, 0),
 		)),
@@ -156,7 +156,7 @@ func setupScheduledJobs(
 				return
 			}
 
-			prevDay := time.Now().AddDate(0, 0, -1)
+			prevDay := time.Now().In(location).AddDate(0, 0, -1)
 			raffles, err := activeRaffleUseCase.Execute(ctx, prevDay)
 			if err != nil {
 				// TODO: retry logic
@@ -182,6 +182,9 @@ func setupScheduledJobs(
 		}),
 		gocron.WithSingletonMode(gocron.LimitModeReschedule),
 	)
+	if err != nil {
+		slog.Error("couldn't setup scheduled job", "err", err)
+	}
 	return s
 }
 
