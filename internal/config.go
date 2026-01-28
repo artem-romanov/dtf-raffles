@@ -36,12 +36,18 @@ func NewConfig() (*Config, error) {
 }
 
 func validateConfig(config Config) error {
+	errs := []error{}
+
 	if config.DbPath == "" {
-		return errors.New("Sqlite Db path is absent")
+		errs = append(errs, errors.New("sqlite Db path is missing"))
 	}
 
 	if config.TelegramToken == "" {
-		return errors.New("Telegram token is absent")
+		errs = append(errs, errors.New("telegram token is missing"))
+	}
+
+	if len(errs) > 0 {
+		return errors.Join(errs...)
 	}
 
 	return nil
