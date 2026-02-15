@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"log"
 	"log/slog"
+	"os"
 	"os/signal"
 	"syscall"
 	"time"
@@ -27,7 +28,6 @@ import (
 )
 
 func main() {
-
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
@@ -35,6 +35,8 @@ func main() {
 	if err != nil {
 		log.Fatalf("Config error: %s", err)
 	}
+
+	initSlog()
 
 	deps, cleanup := initDependencies(ctx, config.DbPath)
 	defer func() {
@@ -124,6 +126,13 @@ func initDependencies(ctx context.Context, dbPath string) (*Dependencies, func()
 
 		activeRafflesUseCase: activeRafflesUseCase,
 	}, cleanup
+}
+
+func initSlog() {
+	logger := slog.New(
+		slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{}),
+	)
+	slog.SetDefault(logger)
 }
 
 func setupScheduledJobs(
