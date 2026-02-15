@@ -1,9 +1,12 @@
+// dtfapi provides methods to several DTF.RU apis,
+// such as log in, refresh token, get post by id, search, etc
 package dtfapi
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"strconv"
 	"time"
 
@@ -124,7 +127,6 @@ func (c *DtfService) RefreshToken(ctx context.Context, refreshToken string) (Tok
 	return tokens, nil
 }
 
-// endpoint: /me
 type SelfUserResponse struct {
 	Message string `json:"message"`
 	Result  struct {
@@ -134,6 +136,7 @@ type SelfUserResponse struct {
 	}
 }
 
+// SelfUserInfo returns information about logged in user
 func (c *DtfService) SelfUserInfo(ctx context.Context, accessToken string) (UserInfo, error) {
 	var apiResponse SelfUserResponse
 	var apiError DtfErrorV2
@@ -171,19 +174,52 @@ type PostBlock struct {
 }
 
 type PostResponse struct {
-	Data struct {
-		Id       int         `json:"id"`
-		Date     int         `json:"date"`
-		Title    string      `json:"title"`
-		Uri      string      `json:"url"`
-		Blocks   []PostBlock `json:"blocks"`
-		RepostId null.Int32  `json:"repostId"`
-	} `json:"data"`
+	Id       int         `json:"id"`
+	Date     int         `json:"date"`
+	Title    string      `json:"title"`
+	Uri      string      `json:"url"`
+	Blocks   []PostBlock `json:"blocks"`
+	RepostId null.Int32  `json:"repostId"`
+}
+
+func (c *DtfService) GetPostById(
+	ctx context.Context,
+	id string,
+) (BlogPost, error) {
+	var apiError DtfErrorV2
+	var apiResponse struct {
+		Post PostResponse `json:"result"`
+	}
+
+	resp, err := c.client.
+		R().
+		SetContext(ctx).
+		SetQueryParams(map[string]string{
+			"markdown": "false",
+			"id":       id,
+		}).
+		SetResult(&apiResponse).
+		SetError(&apiError).
+		Get("/v2.10/content")
+	if err != nil {
+		return BlogPost{}, err
+	} else if resp.IsError() {
+		return BlogPost{}, apiError
+	}
+
+	blogPost, err := mapPostResponseToBlogPost(&apiResponse.Post)
+	if err != nil {
+		return BlogPost{}, err
+	}
+
+	return blogPost, nil
 }
 
 type SearchPostResponse struct {
 	Result struct {
-		Posts []PostResponse `json:"items"`
+		Posts []struct {
+			Data PostResponse `json:"data"`
+		} `json:"items"`
 	} `json:"result"`
 }
 
@@ -219,58 +255,14 @@ func (c *DtfService) SearchNews(
 
 	result := make([]BlogPost, 0, len(apiResponse.Result.Posts))
 	for _, apiPost := range apiResponse.Result.Posts {
-		var blocks []DataBlock
-
-		for _, block := range apiPost.Data.Blocks {
-			switch block.Type {
-			case "text":
-				var textBlock struct {
-					Text string `json:"text"`
-				}
-				err := json.Unmarshal(block.Data, &textBlock)
-				if err != nil {
-					return nil, err
-				}
-				blocks = append(blocks, DataText{
-					HtmlText: textBlock.Text,
-				})
-			case "header":
-				var headerBlock struct {
-					Style string `json:"style"`
-					Text  string `json:"text"`
-				}
-				err := json.Unmarshal(block.Data, &headerBlock)
-				if err != nil {
-					return nil, err
-				}
-				blocks = append(blocks, DataHeader{
-					Style: headerBlock.Style,
-					Text:  headerBlock.Text,
-				})
-			case "list":
-				var listBlock struct {
-					Items []string `json:"items"`
-					Type  string   `json:"type"`
-				}
-				err := json.Unmarshal(block.Data, &listBlock)
-				if err != nil {
-					return nil, err
-				}
-				blocks = append(blocks, DataList{
-					items: listBlock.Items,
-				})
-			}
-			// TODO: Add other types when need comes
-			// Also might be better idea to export this code into another function
+		blogPost, err := mapPostResponseToBlogPost(&apiPost.Data)
+		if err != nil {
+			// мы должны отправить хоть что-то любой ценой
+			// logging only and continue
+			slog.Error("blogpost unmarshal error", "err", err)
+			continue
 		}
-
-		result = append(result, BlogPost{
-			Id:        apiPost.Data.Id,
-			Title:     apiPost.Data.Title,
-			Uri:       apiPost.Data.Uri,
-			Blocks:    blocks,
-			RepliedTo: apiPost.Data.RepostId,
-		})
+		result = append(result, blogPost)
 	}
 
 	return result, nil
@@ -358,4 +350,59 @@ func (c *DtfService) PostComment(ctx context.Context, accessToken string, postId
 func (c *DtfService) withAuth(accessToken string) (*resty.Request, error) {
 	headerValue := fmt.Sprintf("Bearer %s", accessToken)
 	return c.client.R().SetHeader("Jwtauthorization", headerValue), nil
+}
+
+func mapPostResponseToBlogPost(response *PostResponse) (BlogPost, error) {
+	var blocks []DataBlock
+
+	for _, block := range response.Blocks {
+		switch block.Type {
+		case "text":
+			var textBlock struct {
+				Text string `json:"text"`
+			}
+			err := json.Unmarshal(block.Data, &textBlock)
+			if err != nil {
+				return BlogPost{}, err
+			}
+			blocks = append(blocks, DataText{
+				HtmlText: textBlock.Text,
+			})
+		case "header":
+			var headerBlock struct {
+				Style string `json:"style"`
+				Text  string `json:"text"`
+			}
+			err := json.Unmarshal(block.Data, &headerBlock)
+			if err != nil {
+				return BlogPost{}, err
+			}
+			blocks = append(blocks, DataHeader{
+				Style: headerBlock.Style,
+				Text:  headerBlock.Text,
+			})
+		case "list":
+			var listBlock struct {
+				Items []string `json:"items"`
+				Type  string   `json:"type"`
+			}
+			err := json.Unmarshal(block.Data, &listBlock)
+			if err != nil {
+				return BlogPost{}, err
+			}
+			blocks = append(blocks, DataList{
+				items: listBlock.Items,
+			})
+		}
+		// TODO: Add other types when need comes
+		// Also might be better idea to export this code into another function
+	}
+
+	return BlogPost{
+		Id:        response.Id,
+		Title:     response.Title,
+		Uri:       response.Uri,
+		Blocks:    blocks,
+		RepliedTo: response.RepostId,
+	}, nil
 }
