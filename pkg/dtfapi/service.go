@@ -229,7 +229,7 @@ func (c *DtfService) SearchNews(
 	dateFrom time.Time,
 ) ([]BlogPost, error) {
 	var apiResponse SearchPostResponse
-	var apiError DtfErrorV3
+	var apiError DtfErrorV2
 
 	resp, err := c.client.
 		R().
@@ -250,6 +250,7 @@ func (c *DtfService) SearchNews(
 		return nil, err
 	}
 	if resp.IsError() {
+		slog.Error("search news error", "body", resp.String())
 		return nil, apiError
 	}
 
