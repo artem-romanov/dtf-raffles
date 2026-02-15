@@ -247,6 +247,18 @@ func (c *DtfService) SearchNews(
 					Style: headerBlock.Style,
 					Text:  headerBlock.Text,
 				})
+			case "list":
+				var listBlock struct {
+					Items []string `json:"items"`
+					Type  string   `json:"type"`
+				}
+				err := json.Unmarshal(block.Data, &listBlock)
+				if err != nil {
+					return nil, err
+				}
+				blocks = append(blocks, DataList{
+					items: listBlock.Items,
+				})
 			}
 			// TODO: Add other types when need comes
 			// Also might be better idea to export this code into another function

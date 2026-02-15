@@ -48,6 +48,24 @@ func (dt DataHeader) Type() string {
 	return "header"
 }
 
+type DataList struct {
+	items []string
+
+	// TODO: add list type (ul, li)
+}
+
+func (dl DataList) Type() string {
+	return "list"
+}
+
+func (dl DataList) Items() []string {
+	if dl.items == nil {
+		return make([]string, 0)
+	}
+
+	return dl.items
+}
+
 // TODO: add other types in future,
 // right now it's fine to have only Text block
 // type DataImage struct {}

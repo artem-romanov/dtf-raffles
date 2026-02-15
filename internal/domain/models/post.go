@@ -27,6 +27,33 @@ type DataHeader struct {
 
 func (d DataHeader) Type() string { return "header" }
 
+type DataList struct {
+	List []string
+}
+
+func (dl DataList) Type() string { return "list" }
+
+// String() returns cleaned from HTML text.
+// All html tags will be removed.
+func (dl DataList) String() string {
+	if len(dl.List) == 0 {
+		return ""
+	}
+
+	var b strings.Builder
+	for i, item := range dl.List {
+		if i == 0 {
+			b.WriteByte('\n')
+		}
+		cleandText := html2text.HTML2Text(item)
+		b.WriteString("- ")
+		b.WriteString(cleandText)
+		b.WriteByte('\n')
+	}
+
+	return b.String()
+}
+
 type Post struct {
 	Id        int64
 	Title     string
@@ -45,7 +72,7 @@ func (p Post) Print() {
 
 func FromDtfPost(post dtfapi.BlogPost) (Post, error) {
 	if post.Id <= 0 {
-		return Post{}, errors.New("Can't map. Id is less than 1")
+		return Post{}, errors.New("can't map. Id is less than 1")
 	}
 
 	var cleanedTextBuilder strings.Builder
@@ -67,6 +94,15 @@ func FromDtfPost(post dtfapi.BlogPost) (Post, error) {
 			}
 			cleanedTextBuilder.WriteString(b.Text)
 			blocks = append(blocks, data)
+
+		case dtfapi.DataList:
+			data := DataList{
+				List: b.Items(),
+			}
+			cleanedText := data.String()
+			cleanedTextBuilder.WriteString(cleanedText)
+			blocks = append(blocks, data)
+
 		default:
 			// do nothing
 			continue
