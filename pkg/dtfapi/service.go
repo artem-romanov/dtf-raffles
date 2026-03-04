@@ -309,19 +309,6 @@ func (c *DtfService) ReactToPost(
 	return nil
 }
 
-type PostCommentRequest struct {
-	Id   int    `json:"id"`
-	Text string `json:"text"`
-
-	// User's id.
-	// This can be used if we need to comment someone.
-	ReplyTo int `json:"reply_to"`
-	// we won't use it in real world,
-	// but it needs to be described for proper API call.
-	// IINM this is a list of url links or ids
-	Attachments []string `json:"attachments"`
-}
-
 func (c *DtfService) PostComment(ctx context.Context, accessToken string, postId int, text string) error {
 	var apiError DtfErrorV2
 	req, err := c.withAuth(accessToken)
@@ -332,9 +319,16 @@ func (c *DtfService) PostComment(ctx context.Context, accessToken string, postId
 	resp, err := req.
 		SetContext(ctx).
 		SetMultipartFormData(map[string]string{
-			"id":          strconv.Itoa(postId),
-			"text":        text,
-			"reply_to":    "0",  // we don't need to reply anyone, just post under the blogpost
+			"id":   strconv.Itoa(postId),
+			"text": text,
+
+			// User's id.
+			// This can be used if we need to comment someone.
+			"reply_to": "0", // we don't need to reply anyone, just post under the blogpost
+
+			// we won't use it in real world,
+			// but it needs to be described for proper API call.
+			// IINM this is a list of url links or ids
 			"attachments": "[]", // providing empty attachment list, no images
 		}).
 		SetError(&apiError).
