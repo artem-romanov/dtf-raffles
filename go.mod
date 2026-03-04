@@ -4,7 +4,6 @@ go 1.26
 
 require (
 	github.com/go-co-op/gocron/v2 v2.19.0
-	github.com/guregu/null/v6 v6.0.0
 	github.com/joho/godotenv v1.5.1
 	github.com/k3a/html2text v1.2.1
 	golang.org/x/sync v0.19.0

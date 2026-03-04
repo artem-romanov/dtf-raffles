@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/guregu/null/v6"
 	"github.com/k3a/html2text"
 )
 
@@ -60,7 +59,14 @@ type Post struct {
 	Text      string // cleaned from html and concatenated text
 	Uri       string
 	Blocks    []DataBlock
-	RepliedTo null.Int32 // if not null - post is a reply to that post
+	RepliedTo *int // if not nil - post is a reply to that post
+}
+
+func (p Post) IsReply() bool {
+	if p.RepliedTo != nil {
+		return true
+	}
+	return false
 }
 
 func (p Post) Print() {

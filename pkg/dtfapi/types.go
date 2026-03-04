@@ -2,8 +2,6 @@ package dtfapi
 
 import (
 	"time"
-
-	"github.com/guregu/null/v6"
 )
 
 type Tokens struct {
@@ -75,7 +73,7 @@ type BlogPost struct {
 	Title     string
 	Uri       string
 	Blocks    []DataBlock
-	RepliedTo null.Int32 // if not null - it is a reply to that original post
+	RepliedTo *int // if not null - it is a reply to that original post
 }
 
 // USER Structs

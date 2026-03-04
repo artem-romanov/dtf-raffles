@@ -10,7 +10,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/guregu/null/v6"
 	"resty.dev/v3"
 )
 
@@ -179,7 +178,7 @@ type PostResponse struct {
 	Title    string      `json:"title"`
 	Uri      string      `json:"url"`
 	Blocks   []PostBlock `json:"blocks"`
-	RepostId null.Int32  `json:"repostId"`
+	RepostId *int        `json:"repostId"`
 }
 
 func (c *DtfService) GetPostById(
@@ -223,6 +222,9 @@ type SearchPostResponse struct {
 	} `json:"result"`
 }
 
+// SearchNews searches DTF posts by query string starting from dateFrom.
+// Returns posts sorted by date.
+// Mapping errors for individual posts are logged and skipped.
 func (c *DtfService) SearchNews(
 	ctx context.Context,
 	query string,
@@ -233,6 +235,7 @@ func (c *DtfService) SearchNews(
 
 	resp, err := c.client.
 		R().
+		SetResponseBodyUnlimitedReads(true).
 		SetContext(ctx).
 		SetQueryParams(map[string]string{
 			"markdown":  "false",

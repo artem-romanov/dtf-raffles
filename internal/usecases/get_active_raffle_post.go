@@ -28,7 +28,7 @@ func (uc *GetActiveRafflePostsUseCase) Execute(ctx context.Context, fromDate tim
 	// filtering and keeping only ongoing posts
 	var result []models.Post
 	for _, post := range posts {
-		if isEnded(post.Title) || post.RepliedTo.Valid {
+		if isEnded(post.Title) || post.IsReply() {
 			continue
 		}
 		result = append(result, post)
@@ -37,7 +37,7 @@ func (uc *GetActiveRafflePostsUseCase) Execute(ctx context.Context, fromDate tim
 	return result, nil
 }
 
-var EndedRaffleKeywords = []string{
+var endedRaffleKeywords = []string{
 	"завершен",
 	"завершён",
 	"закончен",
@@ -53,7 +53,7 @@ var EndedRaffleKeywords = []string{
 
 func isEnded(title string) bool {
 	title = strings.ToLower(title)
-	for _, keyWord := range EndedRaffleKeywords {
+	for _, keyWord := range endedRaffleKeywords {
 		if strings.Contains(title, keyWord) {
 			return true
 		}
