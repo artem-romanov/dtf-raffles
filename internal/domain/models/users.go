@@ -19,3 +19,11 @@ type TelegramSession struct {
 	TelegramId int64
 	CreatedAt  time.Time
 }
+
+func TelegramSessionsToIds(sessions []TelegramSession) []int64 {
+	ids := make([]int64, len(sessions))
+	for i := range sessions {
+		ids[i] = sessions[i].TelegramId
+	}
+	return ids
+}

@@ -6,20 +6,25 @@ import (
 	"dtf/game_draw/internal/domain/repositories"
 	telegram_utils "dtf/game_draw/internal/telegram/utils"
 	"errors"
+	"fmt"
 	"log/slog"
+	"time"
 
 	tele "gopkg.in/telebot.v4"
 )
 
 type TelegramAuthHandlers struct {
 	telegramSessionRepo repositories.TelegramSubscribersRepository
+	telegramAdmins      []int64
 }
 
 func NewTelegramAuthHandlers(
 	telegramSessionRepo repositories.TelegramSubscribersRepository,
+	telegramAdmins []int64,
 ) *TelegramAuthHandlers {
 	return &TelegramAuthHandlers{
 		telegramSessionRepo: telegramSessionRepo,
+		telegramAdmins:      telegramAdmins,
 	}
 }
 
@@ -39,7 +44,30 @@ func (h *TelegramAuthHandlers) Subscribe(ctx tele.Context) error {
 		return ctx.Send(telegram_utils.ErrTextUnknown)
 	}
 
-	return ctx.Send("Готово. Теперь я буду присылать тебе обновления каждый день в 14:00.")
+	if err := ctx.Send("Готово. Теперь я буду присылать тебе обновления каждый день в 14:00."); err != nil {
+		return err
+	}
+
+	// sleep to avoid ban from telegram
+	// TODO: think about it, maybe we should remove it
+	time.Sleep(50 * time.Millisecond)
+
+	if err := telegram_utils.BroadcastWithRetries(
+		context.TODO(),
+		ctx.Bot(),
+		fmt.Sprintf("Новый подписчик добавился в БД! TELEGRAM ID = %v", user.ID),
+		h.telegramAdmins,
+	); err != nil {
+		slog.Error(
+			"couldnt notify about new telegram sub",
+			"err",
+			err,
+			"telegram_id",
+			user.ID,
+		)
+	}
+
+	return nil
 }
 
 func (h *TelegramAuthHandlers) Unsubscribe(ctx tele.Context) error {

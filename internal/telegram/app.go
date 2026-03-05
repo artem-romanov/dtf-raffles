@@ -15,6 +15,7 @@ func NewBot(
 	botToken string,
 	telegramSessionRepo repositories.TelegramSubscribersRepository,
 	activeRafflesUseCase *usecases.GetActiveRafflePostsUseCase,
+	telegramAdmins []int64,
 ) (*tele.Bot, error) {
 	botSettings := tele.Settings{
 		ParseMode: tele.ModeHTML,
@@ -36,6 +37,7 @@ func NewBot(
 
 	authHandlers := telegram_handlers.NewTelegramAuthHandlers(
 		telegramSessionRepo,
+		telegramAdmins,
 	)
 	postHandlrs := telegram_handlers.NewTelegramPostHandlers(
 		activeRafflesUseCase,
