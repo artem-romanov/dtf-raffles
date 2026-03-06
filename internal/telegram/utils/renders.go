@@ -10,15 +10,15 @@ func PostToTelegramText(post models.Post, short bool) string {
 	sb := strings.Builder{}
 
 	// header
-	sb.WriteString(fmt.Sprintf("<b>Розыгрыш</b>: %s\n", post.Title))
+	sb.WriteString(fmt.Sprintf("🎁 <b>%s</b>\n", post.Title))
 
 	if post.Text != "" && !short {
 		sb.WriteString(
-			fmt.Sprintf("<b>Описание:</b>\n<blockquote expandable>%s</blockquote>", post.Text),
+			fmt.Sprintf("<blockquote expandable>%s</blockquote>", post.Text),
 		)
 	}
 
-	sb.WriteString(fmt.Sprintf("<b>Ссылка:</b> %s", post.Uri))
+	sb.WriteString(fmt.Sprintf("%s", post.Uri))
 
 	return sb.String()
 }
@@ -26,14 +26,14 @@ func PostToTelegramText(post models.Post, short bool) string {
 func ManyPostsToTelegramText(posts []models.Post, short bool) string {
 	builder := strings.Builder{}
 	for i, post := range posts {
-		if i > 0 && i < len(posts) {
-			builder.WriteString("\n * * * \n")
+		if i > 0 {
+			builder.WriteString("\n✦ ✦ ✦\n")
 		}
 		text := PostToTelegramText(post, short)
 		builder.WriteString(text)
 	}
 	if short {
-		builder.WriteString("<i>\n\nОписания слишком длинные, укорочено</i>")
+		builder.WriteString("\n\n<i>✂️ Описания длинные, сокращено</i>")
 	}
 	return builder.String()
 }

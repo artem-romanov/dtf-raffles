@@ -38,24 +38,20 @@ func (h *TelegramAuthHandlers) Subscribe(ctx tele.Context) error {
 	err := h.telegramSessionRepo.RegisterUser(context.TODO(), nil, user.ID)
 	if err != nil {
 		if errors.Is(err, domain.ErrTelegramUserExists) {
-			return ctx.Send("Ошибка. Вы уже зарегестрированы.")
+			return ctx.Send("⚠️ Ошибка. Ты уже подписан на обновления.")
 		}
 		slog.Error("telegram subscription creation failed. reason: ", "error", err)
 		return ctx.Send(telegram_utils.ErrTextUnknown)
 	}
 
-	if err := ctx.Send("Готово. Теперь я буду присылать тебе обновления каждый день в 14:00."); err != nil {
+	if err := ctx.Send("✅ Готово!\n\n🔔Теперь я буду присылать тебе обновления каждый день в 14:00"); err != nil {
 		return err
 	}
-
-	// sleep to avoid ban from telegram
-	// TODO: think about it, maybe we should remove it
-	time.Sleep(50 * time.Millisecond)
 
 	if err := telegram_utils.BroadcastWithRetries(
 		context.TODO(),
 		ctx.Bot(),
-		fmt.Sprintf("Новый подписчик добавился в БД! TELEGRAM ID = %v", user.ID),
+		fmt.Sprintf("🆕 Новый подписчик!\n\nTelegram ID: %v", user.ID),
 		h.telegramAdmins,
 	); err != nil {
 		slog.Error(
@@ -66,6 +62,10 @@ func (h *TelegramAuthHandlers) Subscribe(ctx tele.Context) error {
 			user.ID,
 		)
 	}
+
+	// sleep to avoid ban from telegram
+	// TODO: think about it, maybe we should remove it
+	time.Sleep(50 * time.Millisecond)
 
 	return nil
 }
@@ -80,7 +80,7 @@ func (h *TelegramAuthHandlers) Unsubscribe(ctx tele.Context) error {
 	err := h.telegramSessionRepo.UnregisterUser(context.TODO(), nil, user.ID)
 	if err != nil {
 		if errors.Is(err, domain.ErrTelegramUserNotFound) {
-			return ctx.Send("Ошибка. Ты не был зарегистрирован, нечего удалять.")
+			return ctx.Send("⚠️ Ошибка. Ты не был подписан, поэтому удалять нечего.")
 		}
 		return ctx.Send(telegram_utils.ErrTextUnknown)
 	}
@@ -88,5 +88,28 @@ func (h *TelegramAuthHandlers) Unsubscribe(ctx tele.Context) error {
 	// TODO: Remove dtf session too
 	// there should be use case with transaction....
 
-	return ctx.Send("Готово. Больше обновления получать не будешь.")
+	if err := ctx.Send("✅ Готово!\n\n🔕Ты больше не получишь обновления."); err != nil {
+		return err
+	}
+
+	// sleep to avoid ban from telegram
+	// TODO: think about it, maybe we should remove it
+	time.Sleep(50 * time.Millisecond)
+
+	if err := telegram_utils.BroadcastWithRetries(
+		context.TODO(),
+		ctx.Bot(),
+		fmt.Sprintf("❌ Пользователь отписался\n\nTelegram ID: %v", user.ID),
+		h.telegramAdmins,
+	); err != nil {
+		slog.Error(
+			"couldnt notify about new telegram un-sub",
+			"err",
+			err,
+			"telegram_id",
+			user.ID,
+		)
+	}
+
+	return nil
 }
