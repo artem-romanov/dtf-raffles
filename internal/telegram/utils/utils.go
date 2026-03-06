@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"math/rand"
 	"time"
 	"unicode/utf8"
 
@@ -35,6 +36,9 @@ func BroadcastWithRetries(
 	// telegram forbids sending more than 30 messages per 1 second
 	// https://core.telegram.org/bots/faq#my-bot-is-hitting-limits-how-do-i-avoid-this
 	maxSendsPerSec := 30
+	// TODO:
+	// Возможно стоит вынести лимитер выше, когда посыпится много 429.
+	// Пока проект для трех инвалидов - пусть будет тут, чтобы не усложнять логику
 	limiter := rate.NewLimiter(rate.Limit(maxSendsPerSec), 1)
 
 	for attempt := 1; attempt <= maxRetries && len(failed) > 0; attempt++ {
@@ -82,7 +86,9 @@ func BroadcastWithRetries(
 
 		if len(failed) > 0 && attempt < maxRetries {
 			backoff := baseBackoff * time.Duration(1<<(attempt-1))
-			time.Sleep(backoff)
+			jitterRange := backoff / 4
+			jitter := time.Duration(rand.Int63n(int64(jitterRange*2))) - jitterRange
+			time.Sleep(backoff + jitter)
 		}
 	}
 
