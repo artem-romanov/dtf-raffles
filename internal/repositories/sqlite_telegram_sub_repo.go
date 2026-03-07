@@ -129,7 +129,7 @@ func (r *SqliteTelegramSubRepository) UnregisterUser(
 	_, err := r.FindById(ctx, telegramId)
 	if err != nil {
 		// even if user not found - we don't care
-		return fmt.Errorf("User #%d cant be unregistered: Reason: %w", telegramId, err)
+		return fmt.Errorf("user #%d cant be unregistered: Reason: %w", telegramId, err)
 	}
 
 	db := r.getExecutor(tx)
