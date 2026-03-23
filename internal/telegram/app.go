@@ -17,12 +17,25 @@ func NewBot(
 	activeRafflesUseCase *usecases.GetActiveRafflePostsUseCase,
 	telegramAdmins []int64,
 ) (*tele.Bot, error) {
-	botSettings := tele.Settings{
-		ParseMode: tele.ModeHTML,
-		Token:     botToken,
+	startTime := time.Now()
+
+	poller := &tele.MiddlewarePoller{
 		Poller: &tele.LongPoller{
 			Timeout: 10 * time.Second,
 		},
+
+		Filter: func(u *tele.Update) bool {
+			if u.Message != nil {
+				return u.Message.Time().After(startTime)
+			}
+			return true
+		},
+	}
+
+	botSettings := tele.Settings{
+		ParseMode: tele.ModeHTML,
+		Token:     botToken,
+		Poller:    poller,
 	}
 
 	bot, err := tele.NewBot(botSettings)
