@@ -140,11 +140,7 @@ func (c *DtfService) SelfUserInfo(ctx context.Context, accessToken string) (User
 	var apiResponse SelfUserResponse
 	var apiError DtfErrorV2
 
-	req, err := c.withAuth(accessToken)
-	if err != nil {
-		return UserInfo{}, err
-	}
-
+	req := c.withAuth(accessToken)
 	resp, err := req.
 		SetContext(ctx).
 		SetResult(&apiResponse).
@@ -284,10 +280,7 @@ func (c *DtfService) ReactToPost(
 ) error {
 	var apiError DtfErrorV2
 
-	req, err := c.withAuth(accessToken)
-	if err != nil {
-		return err
-	}
+	req := c.withAuth(accessToken)
 
 	resp, err := req.
 		SetContext(ctx).
@@ -311,11 +304,7 @@ func (c *DtfService) ReactToPost(
 
 func (c *DtfService) PostComment(ctx context.Context, accessToken string, postId int, text string) error {
 	var apiError DtfErrorV2
-	req, err := c.withAuth(accessToken)
-	if err != nil {
-		return err
-	}
-
+	req := c.withAuth(accessToken)
 	resp, err := req.
 		SetContext(ctx).
 		SetMultipartFormData(map[string]string{
@@ -345,9 +334,9 @@ func (c *DtfService) PostComment(ctx context.Context, accessToken string, postId
 	return nil
 }
 
-func (c *DtfService) withAuth(accessToken string) (*resty.Request, error) {
+func (c *DtfService) withAuth(accessToken string) *resty.Request {
 	headerValue := fmt.Sprintf("Bearer %s", accessToken)
-	return c.client.R().SetHeader("Jwtauthorization", headerValue), nil
+	return c.client.R().SetHeader("Jwtauthorization", headerValue)
 }
 
 func mapPostResponseToBlogPost(response *PostResponse) (BlogPost, error) {
