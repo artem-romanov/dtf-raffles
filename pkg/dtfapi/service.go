@@ -151,7 +151,7 @@ func (c *DtfService) SelfUserInfo(ctx context.Context, accessToken string) (User
 	}
 
 	if resp.IsError() {
-		return UserInfo{}, err
+		return UserInfo{}, apiError
 	}
 
 	return UserInfo{
@@ -328,7 +328,7 @@ func (c *DtfService) PostComment(ctx context.Context, accessToken string, postId
 	}
 
 	if resp.IsError() {
-		return err
+		return apiError
 	}
 
 	return nil
