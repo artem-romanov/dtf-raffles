@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"dtf/game_draw/internal/domain"
 	"dtf/game_draw/internal/domain/models"
+	"dtf/game_draw/internal/domain/repositories"
+	"dtf/game_draw/internal/storage"
 	"dtf/game_draw/internal/storage/sqlite"
 	"fmt"
 	"time"
@@ -12,13 +14,15 @@ import (
 
 const sqliteTableName = "user_sessions"
 
+var _ repositories.DtfSessionRepository = (*SqliteUserSessionRepository)(nil)
+
 type SqliteUserSessionRepository struct {
-	db *sql.DB
+	dbProvider *storage.Provider
 }
 
-func NewSqliteUserSessionRepository(db *sql.DB) *SqliteUserSessionRepository {
+func NewSqliteUserSessionRepository(dbProvider *storage.Provider) *SqliteUserSessionRepository {
 	return &SqliteUserSessionRepository{
-		db: db,
+		dbProvider: dbProvider,
 	}
 }
 
@@ -29,13 +33,13 @@ func (repo *SqliteUserSessionRepository) GetByEmail(
 	var session models.DtfUserSession
 	var accessExpirationString string
 	queryStr := fmt.Sprintf(`
-		SELECT email, access, refresh, access_expiration 
+		SELECT email, access, refresh, access_expiration
 		FROM %s
 		WHERE email = ?
 		LIMIT 1;
 	`, sqliteTableName)
 
-	row := repo.db.QueryRowContext(ctx, queryStr, email)
+	row := repo.dbProvider.Ext(ctx).QueryRowContext(ctx, queryStr, email)
 
 	err := row.Scan(
 		&session.Email,
@@ -61,11 +65,10 @@ func (repo *SqliteUserSessionRepository) GetByEmail(
 
 func (repo *SqliteUserSessionRepository) Save(
 	ctx context.Context,
-	tx domain.DBTX,
 	us models.DtfUserSession,
 ) error {
 	queryStr := fmt.Sprintf(`
-	INSERT INTO %s (email, access, refresh, access_expiration, created_at, updated_at) 
+	INSERT INTO %s (email, access, refresh, access_expiration, created_at, updated_at)
 		VALUES(?, ?, ?, ?, ?, ?)
 		ON CONFLICT(email) DO UPDATE SET
 			access = excluded.access,
@@ -74,8 +77,7 @@ func (repo *SqliteUserSessionRepository) Save(
 			updated_at = excluded.updated_at;
 	`, sqliteTableName)
 
-	db := repo.getExecutor(tx)
-	_, err := db.ExecContext(
+	_, err := repo.dbProvider.Ext(ctx).ExecContext(
 		ctx,
 		queryStr,
 		us.Email,
@@ -95,28 +97,17 @@ func (repo *SqliteUserSessionRepository) Save(
 
 func (repo *SqliteUserSessionRepository) DeleteByEmail(
 	ctx context.Context,
-	tx domain.DBTX,
 	email string,
 ) error {
-	db := repo.getExecutor(tx)
-
 	query := fmt.Sprintf(
 		`DELETE FROM %s WHERE email = ?`,
 		sqliteTableName,
 	)
 
-	_, err := db.ExecContext(ctx, query, email)
+	_, err := repo.dbProvider.Ext(ctx).ExecContext(ctx, query, email)
 	if err != nil {
 		return err
 	}
 
 	return nil
-}
-
-func (repo *SqliteUserSessionRepository) getExecutor(tx domain.DBTX) domain.DBTX {
-	if tx == nil {
-		return repo.db
-	}
-
-	return tx
 }

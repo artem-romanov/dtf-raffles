@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"dtf/game_draw/internal/domain"
 	"dtf/game_draw/internal/domain/models"
+	"dtf/game_draw/internal/domain/repositories"
+	"dtf/game_draw/internal/storage"
 	"dtf/game_draw/internal/storage/sqlite"
 	"errors"
 	"fmt"
@@ -13,13 +15,17 @@ import (
 
 const dbTableName = "telegram_subscribers"
 
+var _ repositories.TelegramSubscribersRepository = (*SqliteTelegramSubRepository)(nil)
+
 type SqliteTelegramSubRepository struct {
-	db *sql.DB
+	dbProvider *storage.Provider
+	transactor domain.Transactor
 }
 
-func NewSqliteTelegramSubRepository(db *sql.DB) *SqliteTelegramSubRepository {
+func NewSqliteTelegramSubRepository(dbProvider *storage.Provider, transactor domain.Transactor) *SqliteTelegramSubRepository {
 	return &SqliteTelegramSubRepository{
-		db: db,
+		dbProvider: dbProvider,
+		transactor: transactor,
 	}
 }
 
@@ -37,7 +43,7 @@ func (r *SqliteTelegramSubRepository) FindById(
 		dbTableName,
 	)
 
-	row := r.db.QueryRowContext(ctx, query, telegramId)
+	row := r.dbProvider.Ext(ctx).QueryRowContext(ctx, query, telegramId)
 	err := row.Scan(&user.TelegramId, &createdAtRaw)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -59,7 +65,7 @@ func (r *SqliteTelegramSubRepository) GetAll(ctx context.Context) ([]models.Tele
 		FROM %s;
 	`, dbTableName)
 
-	rows, err := r.db.QueryContext(ctx, query)
+	rows, err := r.dbProvider.Ext(ctx).QueryContext(ctx, query)
 	if err != nil {
 		return nil, err
 	}
@@ -89,68 +95,61 @@ func (r *SqliteTelegramSubRepository) GetAll(ctx context.Context) ([]models.Tele
 
 func (r *SqliteTelegramSubRepository) RegisterUser(
 	ctx context.Context,
-	tx domain.DBTX,
 	telegramId int64,
 ) error {
-	now := time.Now()
-	// check if user exists already
-	_, err := r.FindById(ctx, telegramId)
-	if err == nil {
-		return domain.ErrTelegramUserExists
-	}
-	if !errors.Is(err, domain.ErrTelegramUserNotFound) {
-		return err
-	}
+	return r.transactor.WithTransaction(ctx, func(ctx context.Context) error {
+		now := time.Now()
+		// check if user exists already
+		_, err := r.FindById(ctx, telegramId)
+		if err == nil {
+			return domain.ErrTelegramUserExists
+		}
+		if !errors.Is(err, domain.ErrTelegramUserNotFound) {
+			return err
+		}
 
-	// user not exists, lets save it then
-	db := r.getExecutor(tx)
-	query := fmt.Sprintf(`
-		INSERT INTO %s (telegram_id, created_at) VALUES (?, ?)`,
-		dbTableName,
-	)
-	_, err = db.ExecContext(
-		ctx,
-		query,
-		telegramId,
-		sqlite.ToDbTime(now),
-	)
-	if err != nil {
-		return err
-	}
-	return nil
+		// user not exists, lets save it then
+		query := fmt.Sprintf(`
+			INSERT INTO %s (telegram_id, created_at) VALUES (?, ?)`,
+			dbTableName,
+		)
+		_, err = r.dbProvider.Ext(ctx).ExecContext(
+			ctx,
+			query,
+			telegramId,
+			sqlite.ToDbTime(now),
+		)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
 }
 
 func (r *SqliteTelegramSubRepository) UnregisterUser(
 	ctx context.Context,
-	tx domain.DBTX,
 	telegramId int64,
 ) error {
-	// check if user exists already
-	_, err := r.FindById(ctx, telegramId)
-	if err != nil {
-		// even if user not found - we don't care
-		return fmt.Errorf("user #%d cant be unregistered: Reason: %w", telegramId, err)
-	}
+	return r.transactor.WithTransaction(ctx, func(ctx context.Context) error {
+		// check if user exists already
+		_, err := r.FindById(ctx, telegramId)
+		if err != nil {
+			// even if user not found - we don't care
+			return fmt.Errorf("user #%d cant be unregistered: Reason: %w", telegramId, err)
+		}
 
-	db := r.getExecutor(tx)
-	query := fmt.Sprintf(`
-		DELETE from %s
-		WHERE telegram_id = ?;
-		`,
-		dbTableName,
-	)
+		query := fmt.Sprintf(`
+			DELETE from %s
+			WHERE telegram_id = ?;
+			`,
+			dbTableName,
+		)
 
-	_, err = db.ExecContext(ctx, query, telegramId)
-	if err != nil {
-		return err
-	}
+		_, err = r.dbProvider.Ext(ctx).ExecContext(ctx, query, telegramId)
+		if err != nil {
+			return err
+		}
 
-	return nil
-}
-
-func (repo *SqliteTelegramSubRepository) getExecutor(tx domain.DBTX) domain.DBTX {
-	if tx != nil {
-		return tx
-	}
-	return repo.db
+		return nil
+	})
 }

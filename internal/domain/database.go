@@ -10,3 +10,7 @@ type DBTX interface {
 	QueryContext(context.Context, string, ...any) (*sql.Rows, error)
 	QueryRowContext(context.Context, string, ...any) *sql.Row
 }
+
+type Transactor interface {
+	WithTransaction(ctx context.Context, fn func(ctx context.Context) error) error
+}

@@ -7,6 +7,7 @@ import (
 	"dtf/game_draw/internal/domain/models"
 	iRepo "dtf/game_draw/internal/domain/repositories"
 	"dtf/game_draw/internal/repositories"
+	"dtf/game_draw/internal/storage"
 	"dtf/game_draw/internal/storage/sqlite"
 	"dtf/game_draw/internal/telegram"
 	telegram_utils "dtf/game_draw/internal/telegram/utils"
@@ -88,13 +89,15 @@ func initDependencies(ctx context.Context, dbPath string) (*Dependencies, func()
 	if err != nil {
 		panic(fmt.Sprintf("Couldnt connect to DB. Reason: %s", err.Error()))
 	}
+	sqlProvider := storage.NewProvider(db)
+	transactor := storage.NewSqlTransactor(db)
 
 	// external services
 	dtfClient := dtfapi.NewClient(ctx)
 	dtfService := dtfapi.NewService(dtfClient.Client())
 
 	// repos
-	var telegramSubsRepo iRepo.TelegramSubscribersRepository = repositories.NewSqliteTelegramSubRepository(db)
+	var telegramSubsRepo iRepo.TelegramSubscribersRepository = repositories.NewSqliteTelegramSubRepository(sqlProvider, transactor)
 	var postRepo iRepo.PostRepository = repositories.NewDtfPostRepository(dtfService)
 
 	// use cases

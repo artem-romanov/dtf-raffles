@@ -3,6 +3,7 @@ package repositories
 import (
 	"context"
 	"dtf/game_draw/internal/domain/models"
+	"dtf/game_draw/internal/domain/repositories"
 	"dtf/game_draw/pkg/dtfapi"
 	"log/slog"
 	"time"
@@ -11,6 +12,8 @@ import (
 type dtfPostRepository struct {
 	dtfService *dtfapi.DtfService
 }
+
+var _ repositories.PostRepository = (*dtfPostRepository)(nil)
 
 func NewDtfPostRepository(dtfService *dtfapi.DtfService) *dtfPostRepository {
 	return &dtfPostRepository{
