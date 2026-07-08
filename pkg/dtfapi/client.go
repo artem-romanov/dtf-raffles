@@ -45,7 +45,7 @@ func (c apiClient) Client() *resty.Client {
 
 func (c *apiClient) Close() error {
 	if c.client == nil {
-		return errors.New("Already closed")
+		return errors.New("api client already closed")
 	}
 
 	return c.client.Close()

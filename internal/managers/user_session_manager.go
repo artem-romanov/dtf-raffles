@@ -69,22 +69,23 @@ func (usm *userSessionManager) BuildSession(ctx context.Context, email string) (
 func (usm *userSessionManager) EmailLogin(ctx context.Context, email, password string) (models.DtfUserSession, error) {
 	user, err := usm.authRepo.Login(ctx, email, password)
 	if err == nil {
-		// Right now it's ok to skip if error
-		// TODO: test and think about it later
-		usm.persistUser(ctx, user)
+		// Login succeeded even if persisting the session fails.
+		// Log the error and continue.
+		if err := usm.persistUser(ctx, user); err != nil {
+			slog.Warn("Failed to persist user session", "email", user.Email, "error", err)
+		}
+		return user, nil
 	}
 
-	if err != nil {
-		if errors.Is(err, domain.ErrInvalidCredentials) {
-			deleteErr := usm.sessionRepo.DeleteByEmail(ctx, email)
-			if deleteErr != nil {
-				return models.DtfUserSession{}, deleteErr
-			}
-		}
+	if !errors.Is(err, domain.ErrInvalidCredentials) {
 		return models.DtfUserSession{}, err
 	}
 
-	return user, nil
+	if err := usm.sessionRepo.DeleteByEmail(ctx, email); err != nil {
+		return models.DtfUserSession{}, err
+	}
+
+	return models.DtfUserSession{}, err
 }
 
 func (usm *userSessionManager) persistUser(ctx context.Context, user models.DtfUserSession) error {

@@ -16,11 +16,7 @@ func (t Tokens) IsAccessValid() bool {
 	}
 
 	diff := time.Until(t.AccessExpiration)
-	if diff.Microseconds() <= 0 {
-		return false
-	}
-
-	return true
+	return diff.Microseconds() > 0
 }
 
 // POST Structs

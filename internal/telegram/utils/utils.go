@@ -72,7 +72,7 @@ func BroadcastWithRetries(
 				return nil
 			})
 		}
-		g.Wait()
+		_ = g.Wait()
 		close(attemptFailedUsers)
 
 		// reconstruct failed slice

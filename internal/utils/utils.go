@@ -11,9 +11,5 @@ func UserExpired(session models.DtfUserSession) bool {
 	}
 
 	diff := time.Until(session.AccessExpiration)
-	if diff.Microseconds() <= 0 {
-		return true
-	}
-
-	return false
+	return diff.Microseconds() <= 0
 }

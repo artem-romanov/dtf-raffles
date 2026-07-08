@@ -10,15 +10,13 @@ func PostToTelegramText(post models.Post, short bool) string {
 	sb := strings.Builder{}
 
 	// header
-	sb.WriteString(fmt.Sprintf("🎁 <b>%s</b>\n", post.Title))
+	_, _ = fmt.Fprintf(&sb, "🎁 <b>%s</b>\n", post.Title)
 
 	if post.Text != "" && !short {
-		sb.WriteString(
-			fmt.Sprintf("<blockquote expandable>%s</blockquote>", post.Text),
-		)
+		_, _ = fmt.Fprintf(&sb, "<blockquote expandable>%s</blockquote>", post.Text)
 	}
 
-	sb.WriteString(fmt.Sprintf("%s", post.Uri))
+	_, _ = fmt.Fprintf(&sb, "%s", post.Uri)
 
 	return sb.String()
 }

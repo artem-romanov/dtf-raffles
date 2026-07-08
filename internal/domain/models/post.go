@@ -63,10 +63,7 @@ type Post struct {
 }
 
 func (p Post) IsReply() bool {
-	if p.RepliedTo != nil {
-		return true
-	}
-	return false
+	return p.RepliedTo != nil
 }
 
 func (p Post) Print() {

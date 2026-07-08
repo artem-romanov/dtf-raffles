@@ -4,16 +4,16 @@ import "errors"
 
 // Authentication Errors
 var (
-	ErrInvalidCredentials = errors.New("Credentials invalid")
+	ErrInvalidCredentials = errors.New("credentials invalid")
 )
 
 // Session Errors
 var (
-	ErrUserSessionNotFound = errors.New("UserSession not found")
+	ErrUserSessionNotFound = errors.New("usersession not found")
 )
 
 // Telegram Errors
 var (
-	ErrTelegramUserNotFound = errors.New("Telegram User not found")
-	ErrTelegramUserExists   = errors.New("Telegram User already exists")
+	ErrTelegramUserNotFound = errors.New("telegram user not found")
+	ErrTelegramUserExists   = errors.New("telegram user already exists")
 )
