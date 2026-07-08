@@ -35,7 +35,7 @@ func (h *TelegramAuthHandlers) Subscribe(ctx tele.Context) error {
 	}
 
 	// TODO: check telebot docs, look for context
-	err := h.telegramSessionRepo.RegisterUser(context.TODO(), nil, user.ID)
+	err := h.telegramSessionRepo.RegisterUser(context.TODO(), user.ID)
 	if err != nil {
 		if errors.Is(err, domain.ErrTelegramUserExists) {
 			return ctx.Send("⚠️ Ошибка. Ты уже подписан на обновления.")
@@ -77,7 +77,7 @@ func (h *TelegramAuthHandlers) Unsubscribe(ctx tele.Context) error {
 	}
 
 	// TODO: check telebot docs, look for context
-	err := h.telegramSessionRepo.UnregisterUser(context.TODO(), nil, user.ID)
+	err := h.telegramSessionRepo.UnregisterUser(context.TODO(), user.ID)
 	if err != nil {
 		if errors.Is(err, domain.ErrTelegramUserNotFound) {
 			return ctx.Send("⚠️ Ошибка. Ты не был подписан, поэтому удалять нечего.")

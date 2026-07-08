@@ -76,7 +76,7 @@ func (usm *userSessionManager) EmailLogin(ctx context.Context, email, password s
 
 	if err != nil {
 		if errors.Is(err, domain.ErrInvalidCredentials) {
-			deleteErr := usm.sessionRepo.DeleteByEmail(ctx, nil, email)
+			deleteErr := usm.sessionRepo.DeleteByEmail(ctx, email)
 			if deleteErr != nil {
 				return models.DtfUserSession{}, deleteErr
 			}
@@ -89,7 +89,7 @@ func (usm *userSessionManager) EmailLogin(ctx context.Context, email, password s
 
 func (usm *userSessionManager) persistUser(ctx context.Context, user models.DtfUserSession) error {
 	slog.Info("Running persist", "user", user.Email)
-	err := usm.sessionRepo.Save(ctx, nil, user)
+	err := usm.sessionRepo.Save(ctx, user)
 	if err != nil {
 		slog.Error("Couldnt save updated user", "email", user.Email)
 		return err

@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"dtf/game_draw/internal/domain"
 	"dtf/game_draw/internal/domain/models"
+	"dtf/game_draw/internal/storage"
 	"dtf/game_draw/internal/storage/sqlite"
 	"errors"
 	"fmt"
@@ -14,12 +15,13 @@ import (
 const dbTableName = "telegram_subscribers"
 
 type SqliteTelegramSubRepository struct {
-	db *sql.DB
+	// db *sql.DB
+	dbProvider *storage.Provider
 }
 
-func NewSqliteTelegramSubRepository(db *sql.DB) *SqliteTelegramSubRepository {
+func NewSqliteTelegramSubRepository(dbProvider *storage.Provider) *SqliteTelegramSubRepository {
 	return &SqliteTelegramSubRepository{
-		db: db,
+		dbProvider: dbProvider,
 	}
 }
 
@@ -37,7 +39,7 @@ func (r *SqliteTelegramSubRepository) FindById(
 		dbTableName,
 	)
 
-	row := r.db.QueryRowContext(ctx, query, telegramId)
+	row := r.dbProvider.Ext(ctx).QueryRowContext(ctx, query, telegramId)
 	err := row.Scan(&user.TelegramId, &createdAtRaw)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -59,7 +61,7 @@ func (r *SqliteTelegramSubRepository) GetAll(ctx context.Context) ([]models.Tele
 		FROM %s;
 	`, dbTableName)
 
-	rows, err := r.db.QueryContext(ctx, query)
+	rows, err := r.dbProvider.Ext(ctx).QueryContext(ctx, query)
 	if err != nil {
 		return nil, err
 	}
@@ -89,7 +91,6 @@ func (r *SqliteTelegramSubRepository) GetAll(ctx context.Context) ([]models.Tele
 
 func (r *SqliteTelegramSubRepository) RegisterUser(
 	ctx context.Context,
-	tx domain.DBTX,
 	telegramId int64,
 ) error {
 	now := time.Now()
@@ -103,12 +104,11 @@ func (r *SqliteTelegramSubRepository) RegisterUser(
 	}
 
 	// user not exists, lets save it then
-	db := r.getExecutor(tx)
 	query := fmt.Sprintf(`
 		INSERT INTO %s (telegram_id, created_at) VALUES (?, ?)`,
 		dbTableName,
 	)
-	_, err = db.ExecContext(
+	_, err = r.dbProvider.Ext(ctx).ExecContext(
 		ctx,
 		query,
 		telegramId,
@@ -122,7 +122,6 @@ func (r *SqliteTelegramSubRepository) RegisterUser(
 
 func (r *SqliteTelegramSubRepository) UnregisterUser(
 	ctx context.Context,
-	tx domain.DBTX,
 	telegramId int64,
 ) error {
 	// check if user exists already
@@ -132,7 +131,6 @@ func (r *SqliteTelegramSubRepository) UnregisterUser(
 		return fmt.Errorf("user #%d cant be unregistered: Reason: %w", telegramId, err)
 	}
 
-	db := r.getExecutor(tx)
 	query := fmt.Sprintf(`
 		DELETE from %s
 		WHERE telegram_id = ?;
@@ -140,17 +138,10 @@ func (r *SqliteTelegramSubRepository) UnregisterUser(
 		dbTableName,
 	)
 
-	_, err = db.ExecContext(ctx, query, telegramId)
+	_, err = r.dbProvider.Ext(ctx).ExecContext(ctx, query, telegramId)
 	if err != nil {
 		return err
 	}
 
 	return nil
-}
-
-func (repo *SqliteTelegramSubRepository) getExecutor(tx domain.DBTX) domain.DBTX {
-	if tx != nil {
-		return tx
-	}
-	return repo.db
 }
