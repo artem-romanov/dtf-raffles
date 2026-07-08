@@ -4,6 +4,7 @@ import (
 	"context"
 	"dtf/game_draw/internal/domain"
 	"dtf/game_draw/internal/domain/models"
+	"dtf/game_draw/internal/domain/repositories"
 	"dtf/game_draw/pkg/dtfapi"
 	"errors"
 )
@@ -11,6 +12,8 @@ import (
 type dtfAuthRepository struct {
 	dtfService *dtfapi.DtfService
 }
+
+var _ repositories.AuthRepository = (*dtfAuthRepository)(nil)
 
 func NewDtfAuthRepository(dtfService *dtfapi.DtfService) *dtfAuthRepository {
 	return &dtfAuthRepository{

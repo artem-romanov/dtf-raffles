@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"dtf/game_draw/internal/domain"
 	"dtf/game_draw/internal/domain/models"
+	"dtf/game_draw/internal/domain/repositories"
 	"dtf/game_draw/internal/storage"
 	"dtf/game_draw/internal/storage/sqlite"
 	"fmt"
@@ -12,6 +13,8 @@ import (
 )
 
 const sqliteTableName = "user_sessions"
+
+var _ repositories.DtfSessionRepository = (*SqliteUserSessionRepository)(nil)
 
 type SqliteUserSessionRepository struct {
 	dbProvider *storage.Provider
@@ -62,7 +65,6 @@ func (repo *SqliteUserSessionRepository) GetByEmail(
 
 func (repo *SqliteUserSessionRepository) Save(
 	ctx context.Context,
-	tx domain.DBTX,
 	us models.DtfUserSession,
 ) error {
 	queryStr := fmt.Sprintf(`
@@ -95,7 +97,6 @@ func (repo *SqliteUserSessionRepository) Save(
 
 func (repo *SqliteUserSessionRepository) DeleteByEmail(
 	ctx context.Context,
-	tx domain.DBTX,
 	email string,
 ) error {
 	query := fmt.Sprintf(

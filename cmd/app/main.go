@@ -90,13 +90,14 @@ func initDependencies(ctx context.Context, dbPath string) (*Dependencies, func()
 		panic(fmt.Sprintf("Couldnt connect to DB. Reason: %s", err.Error()))
 	}
 	sqlProvider := storage.NewProvider(db)
+	transactor := storage.NewSqlTransactor(db)
 
 	// external services
 	dtfClient := dtfapi.NewClient(ctx)
 	dtfService := dtfapi.NewService(dtfClient.Client())
 
 	// repos
-	var telegramSubsRepo iRepo.TelegramSubscribersRepository = repositories.NewSqliteTelegramSubRepository(sqlProvider)
+	var telegramSubsRepo iRepo.TelegramSubscribersRepository = repositories.NewSqliteTelegramSubRepository(sqlProvider, transactor)
 	var postRepo iRepo.PostRepository = repositories.NewDtfPostRepository(dtfService)
 
 	// use cases
