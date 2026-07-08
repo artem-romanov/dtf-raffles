@@ -52,7 +52,7 @@ func NewBot(
 		telegramSessionRepo,
 		telegramAdmins,
 	)
-	postHandlrs := telegram_handlers.NewTelegramPostHandlers(
+	postHandlers := telegram_handlers.NewTelegramPostHandlers(
 		activeRafflesUseCase,
 	)
 
@@ -62,7 +62,7 @@ func NewBot(
 
 	bot.Handle("/subscribe", authHandlers.Subscribe)
 	bot.Handle("/unsubscribe", authHandlers.Unsubscribe)
-	bot.Handle("/today_raffles", postHandlrs.GetTodayRaffles)
+	bot.Handle("/today_raffles", postHandlers.GetTodayRaffles)
 
 	return bot, nil
 }
